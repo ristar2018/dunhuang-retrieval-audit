@@ -256,6 +256,17 @@ Recorded here rather than argued away.
    rule is in the supplementary technical report, Section 8.
 5. **One collection, one backbone, sixteen classes.** No claim in the paper
    extends to another collection, another backbone, or a finer taxonomy.
+6. **165 of the 31,815 files are binary segmentation masks, not photographs.**
+   They sit under the Kaggle DH `image_mask/{train,val}/masks/` tree and entered
+   the corpus as ordinary images, so they carry propagated labels like any other
+   file: 0 in `S0` and `S0'`, 22 in `S1`, 102 in `S2` and `S3`, and 9-21 in each
+   size-matched `S'` control (0.6-1.4% of those pools). No mask is a query, and
+   none appears in the E1-1 fold query or gallery sets, which are drawn from the
+   2,278 human-labelled images. 62 masks sit in the `A_current` gallery (0.29% of
+   21,703); recomputing that arm with them removed moves MAP by at most +0.0013
+   and takes the S2-S0 contrast from +0.0283 to +0.0276. The pools were left as
+   ingested rather than rebuilt, and the paper reports no number that depends on
+   them.
 
 ## Licence and contact
 

@@ -12,8 +12,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 15938,
-      "sha256": "09ebc3f988bf48829ff7a238989c0f7de086118443e6374c711683a1e5c4af43"
+      "bytes": 16753,
+      "sha256": "ede9869081b85e104d0452c26184b00e9afff9b3eff1b99d505b642ce234aff5"
     },
     {
       "path": "checks/verify_numbers.py",
