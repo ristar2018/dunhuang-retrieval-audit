@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""E1-4：补跑基线的配对检验（独立于 E1-1 预声明族的次要族）。
+"""E1-4: paired tests for the added baselines (a secondary family, separate from the pre-declared E1-1 family).
 
-族 = 4 项：NormSoftmax 与 CosFace 各自的 Δ(S2−S0) 与 Δ(S3−S0)。
-单位 = 折（折内 3 seed 先平均，n=5，df=4），双侧，Holm 校正。
+family = 4 tests: delta(S2-S0) and delta(S3-S0) for NormSoftmax and for CosFace
+the unit is the fold (three seeds averaged within it, n = 5, df = 4), two-sided, Holm-corrected
 """
 import csv
 from pathlib import Path
@@ -31,7 +31,7 @@ for r in ROWS:
 
 
 def series(method, tier):
-    """按 fold 排序的折均值（折内 seed 先平均）。"""
+    """Per-fold means, sorted by fold (the seeds are averaged inside a fold first)."""
     d2 = defaultdict(list)
     for f, m in d[(method, tier)]:
         d2[f].append(m)

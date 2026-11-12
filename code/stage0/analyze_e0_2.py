@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""E0-2 / E0-3 / E0-4 分析：配对检验 + 选模规则敏感性。"""
+"""E0-2 / E0-3 / E0-4 analysis: paired tests and the sensitivity of the checkpoint-selection rule."""
 from pathlib import Path
 
 import numpy as np

@@ -50,8 +50,9 @@ is what makes the 628 configs comparable.
   their membership is in `data/gradients/` plus the fold definitions in
   `code/stage0/e1_build_folds.py`; folds are contiguous near-duplicate
   components, not an i.i.d. shuffle, so they do not depend on a seed.
-- Sampling seeds (`sampling_seed` in the run manifest) control which images the
-  equal-size control sets admit. Runs sharing a `training_set` share its seed.
+- The four size-matched control sets are fixed by explicit index lists
+  (`data/gradients/S0_prime..S3_prime_indices.json`), not by a sampling seed, so a
+  run is reproducible from its `training_set` value alone.
 - CUDA nondeterminism is not pinned (`torch.backends.cudnn.deterministic` was
   left at its default). Re-running a config reproduces the reported MAP to about
   the third decimal, not bit-exactly; the paper's claims rest on differences

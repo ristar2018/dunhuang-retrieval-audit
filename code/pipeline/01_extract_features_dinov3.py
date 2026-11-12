@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Step 1 (DINOv3): 特征提取
-使用 DINOv3 ViT-B/16 对全部真实敦煌壁画图像提取 768 维特征向量。
-- 模型: 本地 dinov3-vitb16 (AutoModel, 85.7M params, LVD-1689M pretrained)
-- 预处理: AutoImageProcessor (resize 256 + center crop 224 + normalize)
-- 精度: fp16 GPU 推理
-- 输出: features/dinov3_features.npy + features/feature_index.json
-- DINOv2 特征 (dinov2_features.npy) 保留作为对比基线
+Step 1 (DINOv3): feature extraction
+Extract 768-dimensional feature vectors for every real Dunhuang mural image with DINOv3 ViT-B/16
+- model: local dinov3-vitb16 (AutoModel, 85.7M parameters, LVD-1689M pretrained)
+- preprocessing: AutoImageProcessor (resize 256 + center crop 224 + normalize)
+- precision: fp16 GPU inference
+- output: features/dinov3_features.npy plus features/feature_index.json
+- DINOv2 features (dinov2_features.npy) kept as a comparison baseline
 """
 import os, sys, json, time
 import numpy as np
@@ -14,7 +14,7 @@ from PIL import Image
 import torch
 from transformers import AutoModel, AutoImageProcessor
 
-# 加载配置
+# load the configuration
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import (
     CLEAN_INDEX, DINOV3_PATH, FEATURE_NPY, FEATURE_INDEX,
@@ -22,7 +22,7 @@ from config import (
 )
 
 def load_records():
-    """加载 clean_index.json 中所有真实壁画记录"""
+    """Load every real mural record from clean_index.json"""
     with open(CLEAN_INDEX, "r", encoding="utf-8") as f:
         data = json.load(f)
     real = [r for r in data["records"] if r["class"] == "real"]
@@ -30,7 +30,7 @@ def load_records():
     return real
 
 def filter_valid(records):
-    """过滤掉不存在或损坏的文件"""
+    """Drop files that are missing or corrupt"""
     valid, invalid = [], []
     for i, r in enumerate(records):
         p = r["path"]
@@ -50,7 +50,7 @@ def filter_valid(records):
 
 @torch.no_grad()
 def extract_features(valid_records):
-    """批量提取 DINOv3 特征"""
+    """Extract DINOv3 features in batches"""
     print(f"[INFO] 加载模型: {DINOV3_PATH}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     processor = AutoImageProcessor.from_pretrained(DINOV3_PATH)
@@ -86,11 +86,11 @@ def extract_features(valid_records):
             continue
 
         inputs = processor(images=images, return_tensors="pt").to(device)
-        # fp16 输入
+        # fp16 input
         inputs["pixel_values"] = inputs["pixel_values"].half()
         outputs = model(**inputs)
-        # DINOv3: CLS token 在位置 0，4个register tokens 在 CLS 之后，patch tokens 其后
-        # last_hidden_state[:, 0] = CLS token (全局特征)
+        # DINOv3: the CLS token sits at position 0, the four register tokens follow it, then the patch tokens
+        # last_hidden_state[:, 0] = CLS token (the global feature)
         feats = outputs.last_hidden_state[:, 0, :].float().cpu().numpy()
 
         for j, vi in enumerate(batch_valid_idx):
@@ -104,12 +104,12 @@ def extract_features(valid_records):
             print(f"  [{end}/{len(valid_records)}] "
                   f"{elapsed:.0f}s elapsed, {speed:.1f} img/s, ETA {eta:.0f}s")
 
-    # 删除全零行（完全失败的样本）
+    # drop all-zero rows (samples whose extraction failed completely)
     nonzero_mask = np.linalg.norm(all_feats, axis=1) > 0
     all_feats = all_feats[nonzero_mask]
     valid_records = [r for i, r in enumerate(valid_records) if nonzero_mask[i]]
 
-    # L2 归一化（便于余弦相似度检索）
+    # L2 normalisation (so retrieval can use cosine similarity)
     norms = np.linalg.norm(all_feats, axis=1, keepdims=True)
     norms[norms == 0] = 1.0
     all_feats = all_feats / norms
@@ -117,7 +117,7 @@ def extract_features(valid_records):
     print(f"[INFO] 特征矩阵: {all_feats.shape}, dtype: {all_feats.dtype}")
     print(f"[INFO] 提取失败: {len(failed)}")
 
-    # GPU 清理
+    # GPU cleanup
     del model, outputs, inputs
     torch.cuda.empty_cache()
 
@@ -134,12 +134,12 @@ def main():
 
     all_feats, final_records, failed = extract_features(valid)
 
-    # 保存特征矩阵
+    # save the feature matrix
     np.save(FEATURE_NPY, all_feats)
     print(f"[SAVE] 特征矩阵 -> {FEATURE_NPY} "
           f"({os.path.getsize(FEATURE_NPY)/1024/1024:.1f} MB)")
 
-    # 保存索引
+    # save the index
     index = {
         "num_images": len(final_records),
         "feature_dim": FEATURE_DIM,
@@ -164,7 +164,7 @@ def main():
         json.dump(index, f, ensure_ascii=False, indent=2)
     print(f"[SAVE] 特征索引 -> {FEATURE_INDEX}")
 
-    # 按来源统计
+    # statistics by source
     from collections import Counter
     src_counts = Counter(r["source"] for r in final_records)
     print("\n[STATS] 各来源有效图像数:")

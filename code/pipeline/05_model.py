@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Step 5: 模型定义
+Step 5: model definition
 DINOv3 ViT-B/16 backbone + LoRA adapters + Metric Learning Head.
-- backbone: 本地DINOv3, 冻结base权重, 仅训练LoRA参数
+- backbone: local DINOv3, base weights frozen, only the LoRA parameters trained
 - head: SubCenterArcFace / ArcFace / CosFace
-- 输出: L2归一化的768维embedding
+- output: 768-dimensional L2-normalised embeddings
 """
 import os, sys
 import torch
@@ -24,9 +24,9 @@ NUM_CLASSES = len(CATEGORY_NAMES)  # 16
 
 
 def build_backbone(use_lora=True):
-    """构建DINOv3 backbone，可选LoRA"""
+    """Build the DINOv3 backbone, optionally with LoRA"""
     model = AutoModel.from_pretrained(DINOV3_PATH, torch_dtype=torch.float32)
-    # DINOv3 ViT 输出 last_hidden_state, CLS token在位置0
+    # DINOv3 ViT returns last_hidden_state; the CLS token is at position 0
     if use_lora:
         lora_config = LoraConfig(
             r=LORA_R,
@@ -120,7 +120,7 @@ class CosFaceHead(nn.Module):
 
 
 class DINOv3MetricModel(nn.Module):
-    """完整模型：DINOv3 backbone + embedding projection + metric head"""
+    """Full model: DINOv3 backbone + embedding projection + metric head"""
 
     def __init__(self, use_lora=True, loss_name=LOSS_NAME):
         super().__init__()
@@ -149,20 +149,20 @@ class DINOv3MetricModel(nn.Module):
         return embeddings, logits
 
     def get_embeddings(self, pixel_values):
-        """推理时只获取embedding, 不经过head"""
+        """At inference time return the embedding only, bypassing the head"""
         outputs = self.backbone(pixel_values=pixel_values)
         embeddings = outputs.last_hidden_state[:, 0, :]
         return F.normalize(embeddings, p=2, dim=1)
 
     def save_lora(self, path):
-        """保存LoRA权重"""
+        """Save the LoRA weights"""
         self.backbone.save_pretrained(path)
         head_path = os.path.join(path, "metric_head.pt")
         torch.save(self.head.state_dict(), head_path)
         print(f"[SAVE] LoRA + head -> {path}")
 
     def load_lora(self, path):
-        """加载LoRA权重"""
+        """Load the LoRA weights"""
         from peft import PeftModel
         self.backbone = PeftModel.from_pretrained(self.backbone, path)
         head_path = os.path.join(path, "metric_head.pt")

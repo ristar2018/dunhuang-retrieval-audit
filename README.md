@@ -146,25 +146,50 @@ One row per training run, 628 rows: 129 published, 49 stage-0 grid, 450
 cross-fitted grid. 627 enter the statistics — `e02_ArcFace_S0_seed42` is a
 smoke run that trained for a few steps and is marked `in_statistics=no`.
 
-| column | meaning |
-|---|---|
-| `run_id` | directory name; `phase` is `published`, `E0` or `E1` |
-| `method` | loss head; `SubCenterArcFace` carries `subcenter_K` |
-| `training_set` | `S0`..`S3`, or `S0_prime`..`S3_prime` for the size-matched controls |
-| `sampling_seed` | seed of the pseudo-label sampling that built the training set; empty for `S*`, where the tier is fixed |
-| `training_seed` | seed of weight init and batch order |
-| `scale`, `margin_arg`, `margin_unit`, `margin_rad_effective` | the head's angular parameters. `margin_arg` is the value handed to the loss, in whatever unit the loss expects; `margin_unit` says which; `margin_rad_effective` is the same margin in radians, computed here rather than copied. `margin_unit` is `none` for GCE, SCE and the two pair-based baselines. |
-| `subcenter_K` | number of sub-centers; `1` for everything that is not `SubCenterArcFace` |
-| `num_training_images`, `num_update_steps` | the two denominators of any per-image or per-step comparison. `num_update_steps` is blank for published runs, which did not log step counts — see *Known gaps*. |
-| `checkpoint_rule` | how the evaluated checkpoint was chosen |
-| `param_source` | where the numbers came from: the published runs' heads are hard-coded in `code/pipeline/train_metric.py`, so their parameters were read out of that file, not out of `config.json` |
+The table is the hyperparameter record for every run. The per-run `config.json`
+files are **not** shipped, because every field they carry is expanded into a
+column here; `provenance_note` says which file the published heads were read
+from instead. Every run is evaluated at its lowest-training-loss checkpoint; the
+published runs never logged that rule, which `provenance_note` records.
 
-Read `margin_arg` together with `margin_unit`, not alone. The published runs
-passed the margin in degrees to a library that converts degrees internally; the
-stage-0 runs pass radians deliberately, with the unit recorded. A row with
-`margin_arg = 0.5` and `margin_unit = degree` is a 0.0087 rad margin; a row with
-`margin_arg = 28.6` in the same unit is 0.4992 rad. That factor of 57 is the
-subject of Section 7 of the paper and it is legible here without reading code.
+| column | values | meaning |
+|---|---|---|
+| `run_id` | unique | run directory name |
+| `phase` | `published` (129), `E0` (49), `E1` (450) | which experiment produced the row |
+| `method` | 8 | loss head; `SubCenterArcFace` is the only one that carries `subcenter_K` |
+| `training_set` | `S0`..`S3`, `S0_prime`..`S3_prime` | training tier, or its size-matched control |
+| `training_seed` | 42, 123, 456 | weight initialisation and batch order |
+| `scale` | blank, 10, 30, 64 | angular scale; blank only for `CircleLoss`, which has none |
+| `margin_arg` | blank, 0.0, 0.5, 28.6, 28.6479 | the margin **as handed to the loss**, in the unit the loss expects |
+| `margin_unit` | `degree` (385), `none` (243) | unit of `margin_arg`; `none` for GCE, SCE, `CircleLoss` and `ProxyNCA`, which have no angular margin |
+| `margin_rad_effective` | blank, 0.0, 0.008727, 0.499164, 0.5 | the same margin in radians, computed here from the two columns above; it agrees with them in all 628 rows, so it is a convenience column, not an independent measurement |
+| `subcenter_K` | blank (511), 1 (21), 3 (84), 5 (12) | sub-centre count; **blank** where the loss has no sub-centres. `1` is a real setting of `SubCenterArcFace`, not a stand-in for "no sub-centres" |
+| `num_training_images` | 20 | images in the training tier |
+| `num_update_steps` | blank, 9 values | optimiser steps; blank for the 129 published runs, which did not log step counts (see *Known gaps*) |
+| `epochs` | 40 (625), 189 (3) | training length |
+| `batch_size`, `lr`, `weight_decay`, `embed_dim`, `num_classes` | 32, 0.0005, 0.01, 512, 16 | **constant in all 628 rows**; repeated per row so the table is self-contained |
+| `torch_version` | blank (129), `2.11.0+cu128` (499) | blank for the published runs, whose environment was not recorded |
+| `param_source` | `config.json` (499), `code default` (129) | whether the row was read out of a config or out of the training code |
+| `provenance_note` | blank, prose | what a numeric column cannot hold: the file the published heads were read from, and the default standing in for an unlogged value |
+| `in_statistics` | `yes` (627), `no` (1) | the smoke run is excluded from every aggregate |
+
+Three columns were removed when this table was normalised, and the reason is
+worth keeping: `config_path` pointed at the `config.json` on the machine the runs
+were made on — a path that does not exist in this package and that spelled out a
+Chinese-named project directory; `sampling_seed` was empty in all 628 rows,
+because the four size-matched control sets ship as explicit index lists
+(`data/gradients/S0_prime..S3_prime_indices.json`) rather than being sampled; and
+`checkpoint_rule` held `loss` in all 628 rows, so it is stated once above instead
+of repeated per row.
+
+Read `margin_arg` together with `margin_unit`, never alone. Every run that has a
+margin hands the loss a value in degrees; the library converts it internally, so
+the effective margin is the radian column. The published `ArcFace` row reads
+`margin_arg = 0.5` with `margin_unit = degree`, i.e. 0.0087 rad; the stage-0 rows
+set the margin they want in radians (0.5) and hand over its degree equivalent
+(28.6479), i.e. 0.4992 rad. That factor of 57 is the subject of Section 7 of the
+paper, and it is legible here without reading any code.
+
 
 ## Which script produces which table
 

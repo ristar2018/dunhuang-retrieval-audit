@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
 r"""
-E1-1 统计分析：交叉拟合结果的主检验。
+E1-1 statistics: the primary test on the cross-fitted results
 
-统计口径（写进稿件时必须与这里一致）
+statistical definitions (the manuscript must match these)
 ------------------------------------
-- 配对单位有两层：同一图像会被 5 折重复使用，因此**折**是独立单位，
-  seed 只是折内重复。主检验因此以折为单位（n=5），把折内 3 个 seed 先平均，
-  再做配对 t（df=4）；同时报告以 (fold, seed) 为单位的 n=15 检验以便读者对照，
-  但它把同一批图像重复计入，属于偏乐观口径，不能作为主结论依据。
-- 双侧检验，不做单侧（原稿表 3 的 0.044/0.034/0.043/0.042 就是单侧 p×4 的产物）。
-- 多重比较：预先声明一个检验族，Holm 校正，逐条报告未校正与校正后 p。
-  族 = {Δ(S2−S0) × 4 方法, Δ(S3−S0) × 4 方法, 等样本量 Δ(S3′−S0) × 2 方法} = 10 项。
-- 同时报告 micro-MAP（全体 query 的 AP 均值）与 macro-MAP（先按类平均再平均），
-  用于判断效应是否只由大类驱动。
+- the pairing has two levels: the same image is reused across the five folds, so the **fold** is the independent unit,
+  the seeds are only within-fold replicates. The primary test therefore works in folds (n = 5), averaging the three seeds inside a fold first,
+  then a paired t-test (df = 4); the n = 15 test on the (fold, seed) unit is reported alongside for comparison,
+  but it counts the same images more than once, which is an optimistic definition and cannot carry the main conclusion
+- two-sided tests throughout, never one-sided (the 0.044/0.034/0.043/0.042 in Table 3 of the manuscript are one-sided p multiplied by four)
+- multiple comparisons: one pre-declared test family, Holm correction, and both the raw and the corrected p for every test
+  family = {delta(S2-S0) x 4 methods, delta(S3-S0) x 4 methods, size-matched delta(S3'-S0) x 2 methods} = 10 tests
+- report micro-MAP (mean AP over all queries) together with macro-MAP (average within class, then across classes),
+  used to judge whether the effect is driven by the large classes alone
 """
 
 from pathlib import Path
@@ -40,7 +40,7 @@ def holm(pvals):
 
 
 def paired(a, b, label, unit):
-    """返回配对差异统计。a/b 为等长数组（已按配对单位对齐）。"""
+    """Return the paired-difference statistics. a and b are equal-length arrays already aligned by pairing unit."""
     d = np.asarray(a) - np.asarray(b)
     n = len(d)
     m = d.mean()
@@ -61,7 +61,7 @@ def main():
     print(f"[data] {len(df)} 行；fold={sorted(df.fold.unique())} "
           f"tier={sorted(df.tier.unique())} seed={sorted(df.seed.unique())}")
 
-    # 折级：折内 3 seed 先平均
+    # fold level: average the three seeds inside a fold first
     fold_mean = (df.groupby(["method", "tier", "fold"])[["MAP", "macro_MAP"]]
                    .mean().reset_index())
 
@@ -89,7 +89,7 @@ def main():
         [["contrast", "n", "mean_delta", "ci_lo", "ci_hi", "dz", "p_raw", "p_holm", "sig_holm"]]
         .to_string(index=False))
 
-    # 参考口径：(fold, seed) 为单位 n=15
+    # for reference: the (fold, seed) unit, n = 15
     print("\n=== 参考口径（(fold,seed) 为单位，n=15，未校正；偏乐观，不作主结论）===")
     ref = []
     for meth in METHODS:

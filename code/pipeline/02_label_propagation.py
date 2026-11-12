@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-Step 2: 标签传播
-以 hf_dunhuang 的 16 类精确语义标签为种子，
-在 DINOv2 特征空间中通过 k-NN 投票将标签传播到全部 32,415 张图像。
+Step 2: label propagation
+with the 16 exact semantic classes of hf_dunhuang as seeds,
+Propagate labels to all 32,415 images by k-NN voting in DINOv2 feature space
 
-策略:
-  - 种子集: hf_dunhuang 2,278 张 (metadata.csv 中的 16 类标签)
-  - 方法: faiss 精确内积搜索 (特征已 L2 归一化，内积=余弦相似度)
-  - k=7 近邻加权投票 (权重=余弦相似度)
-  - 置信度 = top-1 类别加权票数 / 总加权票数
-  - >=0.60: 可靠标签; <0.60: uncertain
-  - 对 muraldh_sr 超分辨率变体做特殊处理: 同原图标签一致
+strategy:
+  - seed set: 2,278 images from hf_dunhuang (the 16 classes in metadata.csv)
+  - method: exact inner-product search with faiss (features are L2-normalised, so the inner product is the cosine similarity)
+  - k = 7 weighted nearest-neighbour vote (weight = cosine similarity)
+  - confidence = weighted top-1 class votes / total weighted votes
+  - >= 0.60: reliable label; < 0.60: uncertain
+  - super-resolution variants in muraldh_sr are handled specially: one label per source image
 
-输出:
-  annotations/seed_labels.csv  — 种子集标签
-  annotations/all_labels.csv   — 全部图像传播标签
-  annotations/label_statistics.json — 统计信息
+output:
+  annotations/seed_labels.csv  - seed-set labels
+  annotations/all_labels.csv   - propagated labels for every image
+  annotations/label_statistics.json - statistics
 """
 import os, sys, json, csv, time
 import numpy as np
@@ -33,7 +33,7 @@ from config import (
 
 
 def load_features():
-    """加载 Step 1 产出的特征矩阵和索引"""
+    """Load the feature matrix and index produced by step 1"""
     print(f"[INFO] 加载特征矩阵: {FEATURE_NPY}")
     feats = np.load(FEATURE_NPY)
     with open(FEATURE_INDEX, "r", encoding="utf-8") as f:
@@ -45,14 +45,14 @@ def load_features():
 
 def load_seed_labels(feature_index):
     """
-    从 hf_dunhuang/metadata.csv 加载种子标签。
-    需要将文件名映射到 feature_index 中的全局索引。
-    metadata.csv 的 file 字段如 'animals_00000.jpg'，
-    对应路径为 data/raw/dunhuang_hf/images/{label_name}/{file}
+    Load the seed labels from hf_dunhuang/metadata.csv.
+    the file names have to be mapped to the global indices in feature_index.
+    The file field of metadata.csv looks like 'animals_00000.jpg',
+    the corresponding path is data/raw/dunhuang_hf/images/{label_name}/{file}
     """
     print(f"[INFO] 加载种子标签: {HF_CSV}")
 
-    # 构建 path -> global_index 映射
+    # map path -> global_index
     path_to_idx = {}
     for rec in feature_index["records"]:
         path_to_idx[rec["path"]] = rec["index"]
@@ -65,7 +65,7 @@ def load_seed_labels(feature_index):
         for row in reader:
             fname = row["file"]
             label = row["label_name"]
-            # 构造完整路径
+            # build the full path
             full_path = os.path.join(HF_IMG_DIR, label, fname)
             full_path_norm = os.path.normpath(full_path)
 
@@ -80,7 +80,7 @@ def load_seed_labels(feature_index):
                     "is_seed": True,
                 })
             else:
-                # 尝试大小写不敏感匹配
+                # try a case-insensitive match
                 found = False
                 for p, gi in path_to_idx.items():
                     if p.lower() == full_path_norm.lower():
@@ -99,7 +99,7 @@ def load_seed_labels(feature_index):
 
     print(f"  种子标签数: {len(seeds)}, 未匹配: {missing}")
 
-    # 按类别统计
+    # statistics by class
     label_counts = Counter(s["label"] for s in seeds)
     print(f"  类别数: {len(label_counts)}")
     for cat in CATEGORY_NAMES:
@@ -111,7 +111,7 @@ def load_seed_labels(feature_index):
 
 
 def build_faiss_index(feats):
-    """构建 faiss 内积索引 (特征已 L2 归一化)"""
+    """Build a faiss inner-product index (the features are already L2-normalised)"""
     dim = feats.shape[1]
     index = faiss.IndexFlatIP(dim)
     index.add(feats.astype(np.float32))
@@ -121,21 +121,21 @@ def build_faiss_index(feats):
 
 def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
     """
-    k-NN 加权投票标签传播。
-    对每张非种子图像，找 k 个最近邻（优先从种子集中搜索），
-    但为了让种子标签在全局传播，我们对所有图搜索 k 近邻，
-    其中种子标签的近邻投票更有分量。
+    k-NN weighted-vote label propagation.
+    for every non-seed image, find the k nearest neighbours (searching the seed set first),
+    but for the seed labels to propagate globally we search the k nearest neighbours over all images,
+    in which the votes of the seed labels carry more weight.
 
-    改进策略: 两阶段传播
-      Stage 1: 只使用种子标签做 k-NN (k=7)，得到初始传播
-      Stage 2: 对高置信度(>=0.7)的传播结果，纳入扩展种子集再做一轮
-               但为了防止错误扩散，Stage 2 只用于标注 uncertain 的图
+    improved strategy: two-stage propagation
+      Stage 1: k-NN (k=7) over the seed labels only, which gives the initial propagation
+      Stage 2: take the high-confidence (>=0.7) propagations, add them to the seed set and run one more round
+               but to stop errors from spreading, stage 2 is applied only to images marked uncertain
     """
     n_total = feats.shape[0]
     seed_indices = set(s["global_idx"] for s in seeds)
     seed_label_map = {s["global_idx"]: s["label"] for s in seeds}
 
-    # 将种子特征单独建索引用于 Stage 1
+    # index the seed features separately for Stage 1
     seed_feats = np.array([feats[s["global_idx"]] for s in seeds], dtype=np.float32)
     seed_index = faiss.IndexFlatIP(feats.shape[1])
     seed_index.add(seed_feats)
@@ -144,21 +144,21 @@ def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
     print(f"\n[INFO] Stage 1: 种子集 k-NN 传播 (k={k})")
     t0 = time.time()
 
-    # 对所有图像搜索 k 个最近的种子
-    # 分批搜索避免内存峰值
+    # search the k nearest seeds for every image
+    # search in batches to avoid a memory peak
     batch_size = 4096
     all_labels = [""] * n_total
     all_conf = np.zeros(n_total, dtype=np.float32)
-    all_votes = [""] * n_total  # 投票详情 JSON 字符串
+    all_votes = [""] * n_total  # vote detail as a JSON string
     all_source_type = [""] * n_total
 
-    # 种子图像直接赋标签
+    # seed images are labelled directly
     for s in seeds:
         all_labels[s["global_idx"]] = s["label"]
         all_conf[s["global_idx"]] = 1.0
         all_source_type[s["global_idx"]] = "seed"
 
-    # 对非种子图像做 k-NN
+    # k-NN over the non-seed images
     non_seed_mask = np.ones(n_total, dtype=bool)
     for si in seed_indices:
         non_seed_mask[si] = False
@@ -170,15 +170,15 @@ def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
         batch_global = non_seed_indices[start:end]
         queries = feats[batch_global].astype(np.float32)
 
-        # 搜索 k+1 因为可能搜到自己（但自己不在种子集中所以不需要）
+        # searching k+1 would guard against matching oneself, but self is not in the seed set, so it is unnecessary
         D, I = seed_index.search(queries, k)
 
         for local_i in range(len(batch_global)):
             gi = batch_global[local_i]
-            sims = D[local_i]  # 余弦相似度
-            nn_seed_positions = I[local_i]  # 在 seed_idx_list 中的位置
+            sims = D[local_i]  # cosine similarity
+            nn_seed_positions = I[local_i]  # position inside seed_idx_list
 
-            # 加权投票
+            # weighted vote
             vote_weights = defaultdict(float)
             vote_details = []
             for rank, (sim, sp) in enumerate(zip(sims, nn_seed_positions)):
@@ -186,7 +186,7 @@ def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
                     continue
                 seed_gi = seed_idx_list[sp]
                 label = seed_label_map[seed_gi]
-                w = float(max(sim, 0))  # 相似度作为权重
+                w = float(max(sim, 0))  # similarity as the weight
                 vote_weights[label] += w
                 vote_details.append(f"{label}:{w:.3f}")
 
@@ -218,14 +218,14 @@ def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
     print(f"\n  Stage 1 完成 ({elapsed1:.1f}s):")
     print(f"    种子: {seed_count}, 可靠传播: {reliable}, uncertain: {uncertain_count}")
 
-    # Stage 2: 用高置信度传播结果扩展种子集，对 uncertain 图再做一轮
+    # Stage 2: extend the seed set with the high-confidence propagation results and run another pass over the uncertain images
     print(f"\n[INFO] Stage 2: 高置信度扩展种子集，重新标注 uncertain")
     high_conf_mask = (all_conf >= 0.75) & (np.array(all_source_type) == "seed_knn")
     high_conf_indices = np.where(high_conf_mask)[0]
     print(f"  高置信度(>=0.75)扩展种子: {len(high_conf_indices)}")
 
     if len(high_conf_indices) > 0 and uncertain_count > 0:
-        # 扩展种子索引 = 原始种子 + 高置信度传播
+        # extended seed index = original seeds + high-confidence propagation
         ext_seed_feats = np.vstack([
             seed_feats,
             feats[high_conf_indices].astype(np.float32)
@@ -257,7 +257,7 @@ def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
 
                 vote_weights = defaultdict(float)
                 vote_details = []
-                n_orig = 0  # 原始种子投票数
+                n_orig = 0  # number of original seed votes
                 for sim, pos in zip(sims, nn_positions):
                     if pos < 0:
                         continue
@@ -265,7 +265,7 @@ def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
                     origin = ext_seed_origins[pos]
                     w = float(max(sim, 0))
                     if origin == "original":
-                        w *= 1.5  # 原始种子权重加成
+                        w *= 1.5  # bonus weight for original seed votes
                         n_orig += 1
                     vote_weights[label] += w
                     vote_details.append(f"{label}({origin[0]}):{w:.3f}")
@@ -276,7 +276,7 @@ def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
                     total_weight = sum(vote_weights.values())
                     conf = top_weight / total_weight if total_weight > 0 else 0
 
-                    # 只有置信度提升且至少有一个原始种子投票时才升级
+                    # upgrade only when confidence rises and at least one original seed vote exists
                     if conf >= threshold and n_orig >= 2 and conf > all_conf[gi]:
                         all_labels[gi] = top_label
                         all_conf[gi] = conf
@@ -286,7 +286,7 @@ def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
 
         print(f"  Stage 2 升级: {upgraded} / {uncertain_count}")
 
-    # 最终统计
+    # final statistics
     final_reliable = sum(1 for st in all_source_type
                         if st in ("seed", "seed_knn", "expanded_knn"))
     final_uncertain = sum(1 for st in all_source_type if st == "uncertain")
@@ -300,7 +300,7 @@ def knn_propagate(feats, index, seeds, k=KNN_K, threshold=CONF_THRESHOLD):
 
 def save_results(feats, feature_index, seeds,
                  all_labels, all_conf, all_votes, all_source_type):
-    """保存种子标签和全量标签 CSV"""
+    """Save the seed labels and the full label CSV"""
     os.makedirs(ANNO_DIR, exist_ok=True)
 
     # --- seed_labels.csv ---
@@ -349,7 +349,7 @@ def save_results(feats, feature_index, seeds,
         "feature_dim": 768,
     }
 
-    # 按 source 统计
+    # statistics by source
     by_source = defaultdict(lambda: {"total": 0, "labeled": 0, "uncertain": 0})
     for rec in records:
         gi = rec["index"]
@@ -361,17 +361,17 @@ def save_results(feats, feature_index, seeds,
             by_source[src]["labeled"] += 1
     stats["by_source"] = dict(by_source)
 
-    # 按 label 统计
+    # statistics by label
     by_label = Counter()
     for gi in range(len(all_labels)):
         by_label[all_labels[gi]] += 1
     stats["by_label"] = dict(by_label.most_common())
 
-    # 按 label_type 统计
+    # statistics by label_type
     by_type = Counter(all_source_type)
     stats["by_label_type"] = dict(by_type)
 
-    # 置信度分布
+    # confidence distribution
     conf_arr = np.array(all_conf)
     stats["confidence_distribution"] = {
         "mean": float(np.mean(conf_arr)),
@@ -393,7 +393,7 @@ def save_results(feats, feature_index, seeds,
 
 
 def print_summary(stats):
-    """打印最终汇总"""
+    """Print the final summary"""
     print("\n" + "=" * 60)
     print("Step 2 标签传播 — 结果汇总")
     print("=" * 60)

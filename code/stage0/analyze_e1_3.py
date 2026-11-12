@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
 r"""
-E1-3 类别层面拆解：扩展训练集的收益/损失是否被大类与小类分摊得一样。
+E1-3 class-level breakdown: are the gains and losses of the enlarged training set shared evenly by large and small classes
 
-疑问来源
+where the doubt comes from
 --------
-原稿只报 micro-MAP（全体 query 的 AP 均值），大类（wall_mural 103 张 query）
-会主导结果；而文化遗产检索的实际价值往往在稀有细粒度类
-（landscape / dance / other 每类仅 7 张）。若扩展主要抬升大类、压低小类，
-则"扩展有益"这一结论对真实用途是误导。
+the manuscript reports micro-MAP only (mean AP over all queries), and the large class (wall_mural, 103 queries)
+dominates the result, while the practical value of cultural-heritage retrieval tends to lie in the rare fine-grained classes
+(landscape / dance / other hold only seven queries each). If enlargement lifts the large classes and depresses the small ones,
+then "enlargement helps" misleads anyone who cares about real use
 
-做法
+what is done
 ----
-用 e1_perclass.csv（逐 run × 16 类的 AP），对每个方法在每折内先按 seed 平均，
-再跨折平均，得到该类在每档的 AP 与 Δ(S2−S0)；然后：
-  1. 列出逐类 AP 与 Δ；
-  2. 用类规模（每折平均 query 数）与 Δ 做 Spearman 相关；
-  3. 给出 macro-MAP（等权）与 micro-MAP（按 query 加权）的差，
-     即"大类与小类的结论是否一致"。
-产物：e1_3_perclass.csv、e1_3_summary.csv
+Using e1_perclass.csv (AP per run x 16 classes), average the seeds within each fold for each method,
+then averaged across folds, which gives that class's AP per tier and its delta(S2-S0); then:
+  1. list the per-class AP and the delta;
+  2. Spearman-correlate the class size (mean query count per fold) with the delta;
+  3. report the gap between macro-MAP (equal weight) and micro-MAP (query-weighted),
+     i.e. whether large and small classes tell the same story
+output: e1_3_perclass.csv, e1_3_summary.csv
 """
 
 from pathlib import Path
@@ -35,11 +35,11 @@ def main():
     pc = pc[pc.ckpt == "best"]
     print(f"[data] {len(pc)} 行；类={pc.label.nunique()}；折={sorted(pc.fold.unique())}")
 
-    # 折内 seed 平均 → 跨折平均
+    # average the seeds within a fold, then across folds
     per_fold = pc.groupby(["method", "tier", "fold", "label"])["AP"].mean().reset_index()
     per_class = per_fold.groupby(["method", "tier", "label"])["AP"].agg(["mean", "std"]).reset_index()
 
-    # 类规模：用干净 query 的分层规模（每折平均）
+    # class size: the stratified size of the clean query (averaged over folds)
     qsize = (pc[pc.tier == "S0"].groupby("label")["n_query"].mean().round(2)
              if "n_query" in pc.columns else None)
     if qsize is None:
@@ -98,7 +98,7 @@ def main():
     print("\n=== 类规模 vs Δ(S2−S0) ===")
     print(summ.to_string(index=False))
 
-    # micro vs macro 对照
+    # micro vs macro contrast
     ev = pd.read_csv(OUT / "e1_eval.csv", encoding="utf-8-sig")
     ev = ev[ev.ckpt == "best"]
     fm = ev.groupby(["method", "tier", "fold"])[["MAP", "macro_MAP"]].mean().reset_index()

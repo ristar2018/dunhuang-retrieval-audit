@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Step 3c: 清理跨源测试集中与train重复的dunhuang_grottoes图像
-- sim >= 0.99 的142张从cross_source移到gallery labeled
-- 保留deepflying全部(max sim 0.9584，无完全重复)
-- 保留dunhuang_grottoes中sim<0.99的228张
+Step 3c: remove dunhuang_grottoes images from the cross-source test set where they duplicate train
+- the 142 images with sim >= 0.99 move from cross_source to gallery labeled
+- keep all of deepflying (max sim 0.9584, no exact duplicate)
+- keep the 228 dunhuang_grottoes images with sim < 0.99
 """
 import csv, json, os
 import numpy as np
@@ -38,12 +38,12 @@ with open(FIDX, "r", encoding="utf-8") as f:
 path2idx = {rec["path"]: rec["index"] for rec in fidx["records"]}
 feats = np.load(FEAT)
 
-# 构建train特征索引
+# build the training-feature index
 train_idx = np.array([path2idx[r["path"]] for r in train], dtype=np.int64)
 index = faiss.IndexFlatIP(768)
 index.add(feats[train_idx].astype(np.float32))
 
-# 检查cross中每张图
+# check every image in cross
 cross_keep = []
 cross_move = []
 for r in cross:
@@ -57,18 +57,18 @@ for r in cross:
 
 print(f"\n跨源测试集: {len(cross)} -> 保留 {len(cross_keep)}, 移出 {len(cross_move)}")
 
-# 按来源细分
+# break down by source
 from collections import Counter
 move_by_src = Counter(r["source"] for r in cross_move)
 print(f"移出来源: {dict(move_by_src)}")
 
-# 将移出的图像加入gallery labeled
+# the images moved out join gallery labeled
 for r in cross_move:
     r["split"] = "gallery"
     r["is_distractor"] = False
 gallery_extended = gallery + cross_move
 
-# 保存
+# save
 FIELDNAMES = [
     "global_idx", "path", "source",
     "label", "label_cn", "confidence",
@@ -78,7 +78,7 @@ FIELDNAMES = [
 write_csv(os.path.join(RET, "splits", "cross_source_test.csv"), cross_keep, FIELDNAMES)
 write_csv(os.path.join(RET, "splits", "gallery.csv"), gallery_extended, FIELDNAMES)
 
-# 最终验证
+# final verification
 print("\n" + "=" * 60)
 print("最终数据集划分")
 print("=" * 60)
@@ -90,12 +90,12 @@ print(f"  Gallery:      {len(gallery_extended):6d} (labeled: {n_gallery_labeled}
 print(f"  Cross-source: {len(cross_keep):6d}")
 print(f"  Total:        {len(train)+len(query)+len(gallery_extended)+len(cross_keep):6d}")
 
-# 跨源来源分布
+# distribution of cross-source origins
 print(f"\n--- Cross-source 各来源 ---")
 for src, cnt in Counter(r["source"] for r in cross_keep).most_common():
     print(f"  {src:20s}: {cnt:5d}")
 
-# 最终重复验证
+# final duplicate re-check
 cross_keep_idx = np.array([path2idx[r["path"]] for r in cross_keep], dtype=np.int64)
 D_final, _ = index.search(feats[cross_keep_idx].astype(np.float32), 1)
 n99 = int((D_final.flatten() >= 0.99).sum())
@@ -105,12 +105,12 @@ print(f"  sim>=0.99: {n99}")
 print(f"  sim>=0.95: {n95}")
 print(f"  max sim:   {D_final.max():.4f}")
 
-# 类别分布
+# class distribution
 print(f"\n--- 跨源测试集类别分布 ---")
 for label, cnt in Counter(r["label"] for r in cross_keep).most_common():
     print(f"  {label:20s}: {cnt:4d}")
 
-# 更新split_statistics.json
+# update split_statistics.json
 stats = {
     "total_images": len(train) + len(query) + len(gallery_extended) + len(cross_keep),
     "splits": {

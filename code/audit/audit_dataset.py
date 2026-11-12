@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-数据标注审计脚本
-检查项:
-1. 数据泄露检查:
-   - Train/Query/Gallery 路径重叠
-   - muraldh_sr 组完整性
-   - 跨源测试集是否混入 train/query
-   - muraldh_512 裁切与 muraldh_seg/sr 的路径关联
-   - 跨源同图检测 (DINOv2 特征余弦相似度 > 0.99)
-2. 数据污染检查:
-   - AI 生成图像是否混入
-   - 路径是否全部为 real
-   - 是否有损坏/异常文件
-3. 标注质量评估:
-   - 种子标签覆盖率和准确性
-   - 传播标签置信度分布
-   - 各类别标注质量
-   - 高/低置信度样本统计
+Data-annotation audit script
+checks:
+1. data-leak check:
+   - Train/Query/Gallery path overlap
+   - muraldh_sr group integrity
+   - whether the cross-source test set leaks into train/query
+   - how the muraldh_512 crops relate by path to muraldh_seg/sr
+   - cross-source same-image detection (DINOv2 feature cosine similarity > 0.99)
+2. data-contamination check:
+   - whether any AI-generated image slipped in
+   - whether every path is real
+   - whether any file is damaged or abnormal
+3. annotation-quality assessment:
+   - seed-label coverage and accuracy
+   - confidence distribution of the propagated labels
+   - annotation quality per class
+   - counts of high- and low-confidence samples
 """
 import os, sys, json, csv, re
 import numpy as np
@@ -49,7 +49,7 @@ def load_features():
 
 
 def check_path_leakage(train, query, gallery, cross):
-    """检查路径级别的数据泄露"""
+    """Check for path-level data leakage"""
     print("=" * 60)
     print("[CHECK 1] 路径级别数据泄露检查")
     print("=" * 60)
@@ -69,7 +69,7 @@ def check_path_leakage(train, query, gallery, cross):
 
     issues = []
 
-    # Train-Query 重叠
+    # Train-Query overlap
     tq = p_train & p_query
     if tq:
         issues.append(f"Train-Query 路径重叠: {len(tq)}")
@@ -77,7 +77,7 @@ def check_path_leakage(train, query, gallery, cross):
     else:
         print(f"  [OK] Train-Query 无路径重叠")
 
-    # Train-Gallery 重叠
+    # Train-Gallery overlap
     tg = p_train & p_gallery
     if tg:
         issues.append(f"Train-Gallery 路径重叠: {len(tg)}")
@@ -85,7 +85,7 @@ def check_path_leakage(train, query, gallery, cross):
     else:
         print(f"  [OK] Train-Gallery 无路径重叠")
 
-    # Train-Cross 重叠
+    # Train-Cross overlap
     tc = p_train & p_cross
     if tc:
         issues.append(f"Train-Cross 路径重叠: {len(tc)}")
@@ -93,7 +93,7 @@ def check_path_leakage(train, query, gallery, cross):
     else:
         print(f"  [OK] Train-Cross 无路径重叠")
 
-    # Query-Gallery 重叠 (检索场景中query和gallery不应有同一张图)
+    # Query-Gallery overlap (a query and a gallery entry must not be the same image)
     qg = p_query & p_gallery
     if qg:
         issues.append(f"Query-Gallery 路径重叠: {len(qg)}")
@@ -101,7 +101,7 @@ def check_path_leakage(train, query, gallery, cross):
     else:
         print(f"  [OK] Query-Gallery 无路径重叠")
 
-    # Query-Cross 重叠
+    # Query-Cross overlap
     qc = p_query & p_cross
     if qc:
         issues.append(f"Query-Cross 路径重叠: {len(qc)}")
@@ -109,7 +109,7 @@ def check_path_leakage(train, query, gallery, cross):
     else:
         print(f"  [OK] Query-Cross 无路径重叠")
 
-    # 各集合内部路径唯一性
+    # path uniqueness within each split
     for name, rows in [("Train", train), ("Query", query),
                         ("Gallery", gallery), ("Cross", cross)]:
         if len(rows) != len(paths(rows)):
@@ -123,7 +123,7 @@ def check_path_leakage(train, query, gallery, cross):
 
 
 def check_cross_source_holdout(train, query, cross):
-    """检查跨源测试集是否正确留出"""
+    """Check that the cross-source test set is properly held out"""
     print("\n" + "=" * 60)
     print("[CHECK 2] 跨源留出验证")
     print("=" * 60)
@@ -156,7 +156,7 @@ def check_cross_source_holdout(train, query, cross):
 
 
 def check_sr_groups(train, query, gallery):
-    """检查 muraldh_sr 组完整性"""
+    """Check the completeness of the muraldh_sr group"""
     print("\n" + "=" * 60)
     print("[CHECK 3] muraldh_sr 组完整性")
     print("=" * 60)
@@ -202,7 +202,7 @@ def check_sr_groups(train, query, gallery):
     else:
         print(f"  [OK] Query-Gallery SR no leak")
 
-    # 检查每组5个变体是否在同一集合
+    # check that the five variants of a group share one split
     split_by_group = defaultdict(set)
     for r in train + query + gallery:
         if r["source"] == "muraldh_sr":
@@ -224,7 +224,7 @@ def check_sr_groups(train, query, gallery):
     else:
         print(f"  [OK] 所有SR组变体在同一集合")
 
-    # 检查每组变体数量
+    # check the number of variants per group
     group_sizes = defaultdict(int)
     for r in train + query + gallery:
         if r["source"] == "muraldh_sr":
@@ -241,8 +241,8 @@ def check_sr_groups(train, query, gallery):
 
 def check_content_duplication(feats, feature_index, train, query, gallery):
     """
-    检查跨集合内容重复 (DINOv2特征余弦相似度 > 0.99)
-    排除muraldh_sr的同源变体（它们设计上就是相似的）
+    check for content duplication across collections (DINOv2 feature cosine similarity > 0.99)
+    exclude the same-source variants of muraldh_sr (they are similar by construction)
     """
     print("\n" + "=" * 60)
     print("[CHECK 4] 跨集合内容重复检测 (cosine sim > 0.99)")
@@ -250,7 +250,7 @@ def check_content_duplication(feats, feature_index, train, query, gallery):
 
     path_to_idx = {rec["path"]: rec["index"] for rec in feature_index["records"]}
 
-    # 获取各集合的特征索引
+    # fetch the feature index of each split
     def get_feat_indices(rows):
         indices = []
         for r in rows:
@@ -270,7 +270,7 @@ def check_content_duplication(feats, feature_index, train, query, gallery):
 
     issues = []
 
-    # Train vs Query: 搜索最近邻
+    # Train vs Query: nearest-neighbour search
     if len(train_idx) > 0 and len(query_idx) > 0:
         train_feats = feats[train_idx].astype(np.float32)
         query_feats = feats[query_idx].astype(np.float32)
@@ -281,13 +281,13 @@ def check_content_duplication(feats, feature_index, train, query, gallery):
 
         duplicates = np.where(D.flatten() > 0.99)[0]
         if len(duplicates) > 0:
-            # 排除SR同源
+            # exclude same-source SR variants
             real_dupes = 0
             dupe_details = []
             for qi in duplicates:
                 q_path = query[qi]["path"]
                 t_path = train[I[qi][0]]["path"]
-                # 如果都是muraldh_sr且数字ID相同，是预期内的
+                # identical numeric IDs inside muraldh_sr are expected
                 q_src = query[qi]["source"]
                 t_src = train[I[qi][0]]["source"]
                 q_m = re.search(r'(\d+)', os.path.basename(q_path))
@@ -330,7 +330,7 @@ def check_content_duplication(feats, feature_index, train, query, gallery):
                 t_m = re.search(r'(\d+)', os.path.basename(t_path))
                 if g_src == "muraldh_sr" and t_src == "muraldh_sr" and g_m and t_m and g_m.group(1) == t_m.group(1):
                     continue
-                # muraldh_512 裁切可能与 muraldh_seg/sr 同原图
+                # muraldh_512 crops may share a source image with muraldh_seg/sr
                 real_dupes += 1
                 if len(dupe_details) < 5:
                     dupe_details.append(f"    G: {os.path.basename(g_path)} <-> T: {os.path.basename(t_path)} sim={D[gi_pos][0]:.4f}")
@@ -349,14 +349,14 @@ def check_content_duplication(feats, feature_index, train, query, gallery):
 
 
 def check_data_purity(all_rows):
-    """检查数据污染"""
+    """Check for data contamination"""
     print("\n" + "=" * 60)
     print("[CHECK 5] 数据污染检查")
     print("=" * 60)
 
     issues = []
 
-    # 检查AI图像混入
+    # check for AI-generated images
     ai_paths = [r for r in all_rows if "ai_generated" in r["path"].lower()
                 or r.get("source", "").startswith("ai_")]
     if ai_paths:
@@ -365,7 +365,7 @@ def check_data_purity(all_rows):
     else:
         print(f"  [OK] 无AI生成图像")
 
-    # 检查路径存在性
+    # check that the paths exist
     missing = []
     for r in all_rows:
         if not os.path.exists(r["path"]):
@@ -378,11 +378,11 @@ def check_data_purity(all_rows):
     else:
         print(f"  [OK] 所有文件路径存在")
 
-    # 检查模式
+    # check mode
     modes = Counter(r.get("mode", "unknown") for r in all_rows)
     print(f"  图像模式: {dict(modes)}")
 
-    # 检查label字段不为空
+    # check that the label field is not empty
     empty_labels = [r for r in all_rows if not r.get("label", "").strip()]
     if empty_labels:
         issues.append(f"空标签: {len(empty_labels)}")
@@ -394,12 +394,12 @@ def check_data_purity(all_rows):
 
 
 def assess_annotation_quality(all_rows, seeds_count):
-    """评估标注质量"""
+    """Evaluate the label quality"""
     print("\n" + "=" * 60)
     print("[CHECK 6] 标注质量评估")
     print("=" * 60)
 
-    # 分离种子和传播标签
+    # separate seed labels from propagated labels
     seed_rows = [r for r in all_rows if r.get("label_type") == "seed"]
     knn_rows = [r for r in all_rows if r.get("label_type") in ("seed_knn", "expanded_knn")]
     uncertain_rows = [r for r in all_rows if r.get("label_type") == "uncertain"]
@@ -408,7 +408,7 @@ def assess_annotation_quality(all_rows, seeds_count):
     print(f"  传播标签: {len(knn_rows)}")
     print(f"  Uncertain: {len(uncertain_rows)}")
 
-    # 种子标签质量
+    # quality of the seed labels
     print(f"\n  --- 种子标签质量 (hf_dunhuang ground truth) ---")
     seed_by_label = Counter(r["label"] for r in seed_rows)
     print(f"  类别覆盖: {len(seed_by_label)}/16")
@@ -416,7 +416,7 @@ def assess_annotation_quality(all_rows, seeds_count):
         cnt = seed_by_label.get(cat, 0)
         print(f"    {cat:20s}: {cnt:4d}")
 
-    # 传播标签置信度分布
+    # confidence distribution of the propagated labels
     print(f"\n  --- 传播标签置信度分布 ---")
     if knn_rows:
         confs = np.array([float(r["confidence"]) for r in knn_rows])
@@ -431,7 +431,7 @@ def assess_annotation_quality(all_rows, seeds_count):
         print(f"  >=0.7:  {np.mean(confs >= 0.7)*100:.1f}%")
         print(f"  0.6-0.7: {np.mean((confs >= 0.6) & (confs < 0.7))*100:.1f}%")
 
-    # 按来源统计标注质量
+    # annotation quality by source
     print(f"\n  --- 各来源标注质量 ---")
     source_stats = defaultdict(lambda: {"total": 0, "seed": 0, "knn": 0,
                                           "uncertain": 0, "conf_sum": 0.0})
@@ -455,7 +455,7 @@ def assess_annotation_quality(all_rows, seeds_count):
               f"labeled={s['seed']+s['knn']:5d} ({rate:5.1f}%), "
               f"avg_conf={avg_conf:.3f}")
 
-    # 按类别统计标注质量
+    # annotation quality by class
     print(f"\n  --- 各类别标注质量 (可靠标签) ---")
     label_stats = defaultdict(lambda: {"count": 0, "conf_sum": 0.0,
                                          "seed": 0, "knn": 0})
@@ -476,7 +476,7 @@ def assess_annotation_quality(all_rows, seeds_count):
               f"(seed={s['seed']:4d}, knn={s['knn']:4d}), "
               f"avg_conf={avg_conf:.3f}")
 
-    # 训练集标签分布平衡性
+    # label balance of the training set
     print(f"\n  --- Train 类别平衡性 ---")
     train_rows = [r for r in all_rows if r.get("split") == "train"]
     train_labels = Counter(r["label"] for r in train_rows)
@@ -494,7 +494,7 @@ def assess_annotation_quality(all_rows, seeds_count):
 
 
 def check_feature_integrity(feats, feature_index):
-    """检查特征矩阵完整性"""
+    """Check the integrity of the feature matrix"""
     print("\n" + "=" * 60)
     print("[CHECK 7] 特征矩阵完整性")
     print("=" * 60)
@@ -504,7 +504,7 @@ def check_feature_integrity(feats, feature_index):
     print(f"  Shape: {feats.shape}")
     print(f"  Dtype: {feats.dtype}")
 
-    # 检查NaN/Inf
+    # check for NaN/Inf
     nan_count = np.isnan(feats).sum()
     inf_count = np.isinf(feats).sum()
     if nan_count > 0:
@@ -518,7 +518,7 @@ def check_feature_integrity(feats, feature_index):
     else:
         print(f"  [OK] 无Inf")
 
-    # 检查L2归一化
+    # check L2 normalisation
     norms = np.linalg.norm(feats, axis=1)
     norm_ok = np.allclose(norms, 1.0, atol=1e-5)
     if norm_ok:
@@ -527,7 +527,7 @@ def check_feature_integrity(feats, feature_index):
         issues.append("L2归一化异常")
         print(f"  [FAIL] L2 norm range: {norms.min():.6f} ~ {norms.max():.6f}")
 
-    # 检查全零行
+    # check for all-zero rows
     zero_rows = np.where(norms < 0.5)[0]
     if len(zero_rows) > 0:
         issues.append(f"全零/异常行: {len(zero_rows)}")
@@ -535,7 +535,7 @@ def check_feature_integrity(feats, feature_index):
     else:
         print(f"  [OK] 无全零行")
 
-    # 索引一致性
+    # index consistency
     idx_count = feature_index["num_images"]
     if idx_count == feats.shape[0]:
         print(f"  [OK] 索引记录数({idx_count}) == 特征行数({feats.shape[0]})")
@@ -551,7 +551,7 @@ def main():
     print("敦煌壁画检索数据集 — 全面审计")
     print("=" * 60)
 
-    # 加载数据
+    # load data
     print("\n[LOAD] 加载数据文件...")
     train = load_csv(TRAIN_CSV)
     query = load_csv(QUERY_CSV)
@@ -567,14 +567,14 @@ def main():
 
     all_issues = []
 
-    # 执行检查
+    # run the checks
     all_issues.extend(check_path_leakage(train, query, gallery, cross))
     all_issues.extend(check_cross_source_holdout(train, query, cross))
     all_issues.extend(check_sr_groups(train, query, gallery))
     all_issues.extend(check_content_duplication(
         feats, feature_index, train, query, gallery))
 
-    # 合并所有行用于污染检查
+    # concatenate all rows for the contamination check
     split_rows = train + query + gallery + cross
     all_issues.extend(check_data_purity(split_rows))
     all_issues.extend(check_feature_integrity(feats, feature_index))
@@ -582,7 +582,7 @@ def main():
     seed_count = len([r for r in all_rows if r.get("label_type") == "seed"])
     assess_annotation_quality(all_rows, seed_count)
 
-    # 最终总结
+    # final summary
     print("\n" + "=" * 60)
     print("审计总结")
     print("=" * 60)

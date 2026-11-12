@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 r"""
-E1-1 评估：对每折训练产物，用**该折自己的** query / gallery（两者均为 hf_dunhuang
-人工标签图，与训练种子集不相交）计算检索指标。
+E1-1 evaluation: score each fold's trained artefact against **that fold's own** query / gallery (both drawn from hf_dunhuang
+human-labelled images, disjoint from the training seed set)
 
-与 E0 的差别：
-- E0 的 B_seed_only 是 339 张（原划分只留了这么多人工标签在 gallery）；
-  E1 每折 gallery ≈ 455 张、query ≈ 455 张，且 5 折合起来覆盖全部 2,278 张，
-  等价于把干净评估集扩到 4.5 倍，并且是在 5 个独立划分上重复。
-- 同时输出 micro-MAP（全体 query 的 AP 均值）与 macro-MAP（先按类求 AP 再平均），
-  后者用于检查提升是否只来自大类。
+differences from E0:
+- B_seed_only in E0 holds 339 images (that is all the human labels the original split left in the gallery);
+  E1 gives roughly 455 gallery and 455 query images per fold, and the five folds together cover all 2,278 images,
+  equivalent to enlarging the clean evaluation set 4.5-fold, and repeated over five independent splits
+- output micro-MAP (mean AP over all queries) and macro-MAP (AP per class, then averaged),
+  the latter checks whether the gain comes from the large classes alone
 
-产物：e1_eval.csv（逐 run）、e1_perclass.csv（逐 run × 类）。
+output: e1_eval.csv (one row per run), e1_perclass.csv (one row per run x class)
 """
 
 import re

@@ -1,9 +1,9 @@
 """
-统计显著性分析脚本
-- Bonferroni校正 + FDR(Benjamini-Hochberg)校正
--  paired t-test (同种子配对比较)
--  独立t-test (不同方法间比较)
--  效应量Cohen's d
+Statistical-significance analysis script
+- Bonferroni correction plus FDR (Benjamini-Hochberg) correction
+-  paired t-test (pairing on the same seed)
+-  independent t-test (comparison across methods)
+-  effect size Cohen's d
 """
 import json, re, sys
 import numpy as np
@@ -15,13 +15,13 @@ BASE_DIR = Path(r"<DATA_ROOT>\retrieval")
 RESULTS_DIR = BASE_DIR / "results"
 OUTPUT_DIR = BASE_DIR / "experiment_records"
 
-# ======================== 数据加载 ========================
+# ======================== data loading ========================
 def load_eval_results():
     with open(RESULTS_DIR / "all_eval_results.json", 'r', encoding='utf-8') as f:
         return json.load(f)
 
 def parse_exp_name(exp_name):
-    """解析实验名，返回 (method, dataset, seed)"""
+    """Parse an experiment name and return (method, dataset, seed)"""
     # SubCenterArcFace_K3_S2_seed42
     # ArcFace_S1_prime_seed123
     # GCE_S0_seed42
@@ -31,7 +31,7 @@ def parse_exp_name(exp_name):
     return None, None, None
 
 def build_data(all_eval):
-    """构建 method -> dataset -> seed -> metrics 的嵌套字典"""
+    """Build the nested method -> dataset -> seed -> metrics dictionary"""
     data = defaultdict(lambda: defaultdict(dict))
     for exp_name, metrics in all_eval.items():
         method, dataset, seed = parse_exp_name(exp_name)
@@ -39,15 +39,15 @@ def build_data(all_eval):
             data[method][dataset][seed] = metrics
     return data
 
-# ======================== 统计检验 ========================
+# ======================== statistical tests ========================
 def bonferroni_correction(p_values, alpha=0.05):
-    """Bonferroni校正"""
+    """Bonferroni correction"""
     n = len(p_values)
     corrected = [min(p * n, 1.0) for p in p_values]
     return corrected
 
 def fdr_bh_correction(p_values, alpha=0.05):
-    """Benjamini-Hochberg FDR校正"""
+    """Benjamini-Hochberg FDR correction"""
     n = len(p_values)
     if n == 0:
         return []
@@ -63,29 +63,29 @@ def fdr_bh_correction(p_values, alpha=0.05):
     return corrected
 
 def cohens_d_paired(x, y):
-    """配对样本Cohen's d"""
+    """Paired-sample Cohen's d"""
     diff = np.array(x) - np.array(y)
     return np.mean(diff) / np.std(diff, ddof=1) if np.std(diff, ddof=1) > 0 else 0.0
 
 def cohens_d_independent(x, y):
-    """独立样本Cohen's d"""
+    """Independent-sample Cohen's d"""
     nx, ny = len(x), len(y)
     var_x, var_y = np.var(x, ddof=1), np.var(y, ddof=1)
     pooled_std = np.sqrt(((nx-1)*var_x + (ny-1)*var_y) / (nx+ny-2))
     return (np.mean(x) - np.mean(y)) / pooled_std if pooled_std > 0 else 0.0
 
-# ======================== 分析1: 噪声梯度效应 ========================
+# ======================== analysis 1: noise-gradient effect ========================
 def analysis_gradient_effect(data):
     """
-    H1: 中等噪声(S2)的MAP显著高于纯净标签(S0)
-    对每个方法，配对t-test比较S2 vs S0（按种子配对）
+    H1: under moderate noise (S2) the MAP is significantly higher than under clean labels (S0)
+    for each method, a paired t-test compares S2 with S0 (paired by seed)
     """
     print("=" * 70)
     print("分析1: 噪声梯度效应 (S2 vs S0)")
     print("H0: MAP_S2 = MAP_S0, H1: MAP_S2 > MAP_S0 (单侧)")
     print("=" * 70)
     
-    # Phase 2 方法 (有S0和S2数据)
+    # Phase-2 methods (S0 and S2 both available)
     phase2_methods = ['ArcFace', 'GCE', 'SCE', 'SubCenterArcFace_K3']
     results = []
     
@@ -100,7 +100,7 @@ def analysis_gradient_effect(data):
         map_s2 = [data[method]['S2'][s]['MAP'] for s in seeds_common]
         
         t_stat, p_val = stats.ttest_rel(map_s2, map_s0)
-        # 单侧: 如果t>0则p/2, 否则p=1-p/2
+        # one-sided: p/2 if t > 0, else 1 - p/2
         if t_stat > 0:
             p_one_sided = p_val / 2
         else:
@@ -120,7 +120,7 @@ def analysis_gradient_effect(data):
             'seeds': seeds_common,
         })
     
-    # 多重比较校正
+    # multiple-comparison correction
     p_vals = [r['p_one_sided'] for r in results]
     bonf_p = bonferroni_correction(p_vals)
     fdr_p = fdr_bh_correction(p_vals)
@@ -141,11 +141,11 @@ def analysis_gradient_effect(data):
     print(f"\n显著性标记: *** p<0.05(Bonferroni) | ** p<0.05(FDR) | * p<0.05(未校正)")
     return results
 
-# ======================== 分析2: 方法间比较 ========================
+# ======================== analysis 2: comparison across methods ========================
 def analysis_method_comparison(data):
     """
-    H1: GCE在S2层的MAP显著优于其他方法
-    配对t-test（按种子配对）
+    H1: at tier S2 the MAP of GCE is significantly higher than that of the other methods
+    paired t-test (paired by seed)
     """
     print("\n" + "=" * 70)
     print("分析2: S2层方法间比较 (GCE vs 其他)")
@@ -154,7 +154,7 @@ def analysis_method_comparison(data):
     methods = ['ArcFace', 'GCE', 'SCE', 'SubCenterArcFace_K3']
     seeds_all = [42, 123, 456]
     
-    # 收集各方法在S2的MAP
+    # collect MAP at S2 for each method
     method_maps = {}
     for m in methods:
         if 'S2' in data[m]:
@@ -212,10 +212,10 @@ def analysis_method_comparison(data):
     print(f"\n显著性标记: *** p<0.05(Bonferroni) | ** p<0.05(FDR) | * p<0.05(未校正)")
     return results
 
-# ======================== 分析3: K值效应 ========================
+# ======================== analysis 3: effect of K ========================
 def analysis_kvalue_effect(data):
     """
-    H1: K=1在S0层显著优于K=3和K=5
+    H1: at tier S0, K=1 is significantly better than K=3 and K=5
     """
     print("\n" + "=" * 70)
     print("分析3: K值效应 (Phase 3)")
@@ -224,7 +224,7 @@ def analysis_kvalue_effect(data):
     methods_k = ['SubCenterArcFace_K1', 'SubCenterArcFace_K3', 'SubCenterArcFace_K5']
     seeds_all = [42, 123, 456]
     
-    # 各K值在各数据集的MAP
+    # MAP for each K on each dataset
     print("\n(a) K值 × 数据集 MAP")
     print(f"\n{'K值':<30} {'S0':>8} {'S1':>8} {'S2':>8} {'S3':>8}")
     print("-" * 70)
@@ -285,7 +285,7 @@ def analysis_kvalue_effect(data):
             sig = "***" if bonf_p[i] < 0.05 else ("**" if fdr_p[i] < 0.05 else ("*" if r['p_one_sided'] < 0.05 else ""))
             print(f"{r['comparison']:<20} {r['k1_mean']:>9.4f} {r['other_mean']:>9.4f} {r['t_stat']:>7.3f} {r['p_one_sided']:>9.4f} {bonf_p[i]:>8.4f} {fdr_p[i]:>8.4f} {r['cohens_d']:>8.3f} {sig:>4}")
     
-    # 噪声梯度效应在K=1下是否显著
+    # is the noise-gradient effect significant at K = 1
     print("\n(c) K=1的噪声梯度效应 (S2 vs S0)")
     if 'SubCenterArcFace_K1' in data:
         m = 'SubCenterArcFace_K1'
@@ -301,11 +301,11 @@ def analysis_kvalue_effect(data):
             print(f"  t = {t_stat:.3f}, p(单侧) = {p_one:.4f}, Cohen's d = {d:.3f}")
             print(f"  结论: {'显著' if p_one < 0.05 else '不显著'}")
 
-# ======================== 分析4: 超参vs子中心 ========================
+# ======================== analysis 4: hyperparameters vs sub-centres ========================
 def analysis_hyperparam_vs_subcenter(data):
     """
     ArcFace(scale=30) vs SubCenterK1(scale=64) at S0
-    验证超参数选择的影响
+    verify the effect of the hyperparameter choice
     """
     print("\n" + "=" * 70)
     print("分析4: 超参数效应 vs 子中心效应")
@@ -331,9 +331,9 @@ def analysis_hyperparam_vs_subcenter(data):
             print(f"  t = {t_stat:.3f}, p = {p_val:.4f}, Cohen's d = {d:.3f}")
             print(f"  结论: {'K1显著优于ArcFace(超参效应)' if t_stat > 0 and p_val < 0.05 else '差异不显著' if p_val >= 0.05 else 'ArcFace优于K1'}")
 
-# ======================== 分析5: 综合效应量 ========================
+# ======================== analysis 5: pooled effect sizes ========================
 def analysis_effect_sizes(data):
-    """汇总所有关键比较的效应量"""
+    """Summarise the effect sizes of every key comparison"""
     print("\n" + "=" * 70)
     print("分析5: 效应量汇总 (Cohen's d)")
     print("=" * 70)
@@ -345,7 +345,7 @@ def analysis_effect_sizes(data):
     
     effect_size_results = []
     
-    # 梯度效应 (S2 vs S0) for each method
+    # gradient effect (S2 vs S0) for each method
     for method in ['ArcFace', 'GCE', 'SCE', 'SubCenterArcFace_K3', 'SubCenterArcFace_K1']:
         if method not in data:
             continue
@@ -360,7 +360,7 @@ def analysis_effect_sizes(data):
             print(f"{label:<35} {d:>9.3f} {size:>10}")
             effect_size_results.append({'comparison': label, 'd': d, 'size': size})
     
-    # K值效应
+    # effect of K
     for other in ['SubCenterArcFace_K3', 'SubCenterArcFace_K5']:
         if 'SubCenterArcFace_K1' not in data or other not in data:
             continue
@@ -376,7 +376,7 @@ def analysis_effect_sizes(data):
     
     return effect_size_results
 
-# ======================== 主流程 ========================
+# ======================== main flow ========================
 def main():
     print("统计显著性分析报告")
     print(f"数据源: {RESULTS_DIR / 'all_eval_results.json'}")
@@ -386,14 +386,14 @@ def main():
     all_eval = load_eval_results()
     data = build_data(all_eval)
     
-    # 5个分析
+    # 5 analyses
     r1 = analysis_gradient_effect(data)
     r2 = analysis_method_comparison(data)
     analysis_kvalue_effect(data)
     analysis_hyperparam_vs_subcenter(data)
     r5 = analysis_effect_sizes(data)
     
-    # 保存结果到JSON
+    # save the results as JSON
     summary = {
         'analysis_time': __import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'total_experiments': len(all_eval),

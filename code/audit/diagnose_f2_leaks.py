@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""诊断F2特征空间泄漏: 检查高相似度对的文件路径/来源/类别"""
+"""Diagnose the F2 feature-space leak: inspect the path, source and class of every high-similarity pair"""
 import csv, os, numpy as np
 
 SPLITS_DIR = r"<DATA_ROOT>\retrieval\splits"

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""E0-1 结果分析：分变体做配对检验，量化「S2 峰值」随 gallery 标注来源的变化。"""
+"""E0-1 analysis: paired tests per variant, quantifying how the S2 peak moves with the label source of the gallery."""
 import itertools
 from pathlib import Path
 
@@ -15,7 +15,7 @@ METHODS = ["ArcFace", "GCE", "SCE", "SubCenterArcFace_K1", "SubCenterArcFace_K3"
 
 
 def paired(a, b):
-    """a,b: 逐 seed 配对数组。返回 均值差、t、双侧 p、Cohen's d_z、95%CI"""
+    """a, b: per-seed paired arrays. Returns the mean difference, t, two-sided p, Cohen's d_z and the 95% CI"""
     a, b = np.asarray(a, float), np.asarray(b, float)
     d = a - b
     n = len(d)
@@ -108,7 +108,7 @@ for v in ["A_current", "B_seed_only"]:
             cells.append(f"{x.mean():.4f}±{x.std(ddof=1):.4f}")
         print(f"{m:<24s}" + "".join(f"{c:>18s}" for c in cells))
 
-# gallery 污染度
+# gallery contamination
 print("\n" + "=" * 108)
 print("表 5  gallery 标注来源构成")
 print("=" * 108)

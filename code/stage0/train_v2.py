@@ -1,25 +1,25 @@
 # -*- coding: utf-8 -*-
 r"""
-train_v2.py —— 阶段 0 复核用训练入口（不改动原始 code/ 目录）
+train_v2.py -- the training entry point for the stage-0 review (the original code/ directory is left untouched)
 
-相对 <DATA_ROOT>\retrieval\code\train_metric.py 的改动，仅为把
-E0-2/E0-3/E0-4 需要的三项"此前不可控"的东西显式化：
+The only changes against <DATA_ROOT>/code/train_metric.py are that
+three things that were previously out of reach are made explicit for E0-2/E0-3/E0-4:
 
-1. scale / margin 显式传参，并区分单位。
-   PML 的 ArcFaceLoss / SubCenterArcFaceLoss 的 margin 入参单位是「度」
+1. pass scale and margin explicitly, and keep the units apart
+   PML's ArcFaceLoss / SubCenterArcFaceLoss take their margin in degrees
    （arcface_loss.py:22-23 `self.margin = np.radians(self.margin)`），
-   CosFaceLoss 的 margin 入参单位是「弧度」（无 radians 转换）。
-   原脚本 ArcFace 传 margin=0.5 被解释成 0.5°，等于没有 margin —— 这是
-   原稿"标准 ArcFace"基线的实际状态。本脚本强制要求按弧度书写，
-   内部再按每个损失的真实单位换算，并写入 config 以便产物可反查。
+   CosFaceLoss takes its margin in radians (no conversion is applied)
+   the original script passed margin=0.5 for ArcFace and it was read as 0.5 degrees, which is no margin at all -- this is
+   the actual state of the manuscript's "standard ArcFace" baseline. This script insists on radians,
+   the conversion into each loss's real unit happens inside, and is written into the config so every artefact can be traced back
 
-2. --max_steps：固定优化步数预算（E0-3）。原脚本只按 epoch 计，
-   在 batch_size 固定时训练集越大步数越多（S2 是 S0 的 4.72 倍）。
+2. --max_steps: a fixed optimiser-step budget (E0-3). The original script counted epochs only,
+   with batch_size fixed, a larger training set means more steps (S2 is 4.72 times S0)
 
-3. --select：checkpoint 选择规则。原脚本按训练损失最小选 best（E0-4），
-   在噪声标签下系统性偏向记忆噪声。可选 loss / last / epochN。
+3. --select: the checkpoint-selection rule. The original script took the lowest training loss as best (E0-4),
+   systematically favours memorising the noise when labels are noisy. Accepts loss / last / epochN
 
-另：复用原脚本的模型与损失定义（直接 import），不复制实现。
+also: the model and loss definitions of the original scripts are imported, not copied
 """
 
 import argparse
@@ -48,7 +48,7 @@ OUT_ROOT = Path(__file__).parent / "runs_e0"
 
 
 def build_loss(method, num_classes, embed_dim, scale, margin_rad, subcenter_k, q=0.7):
-    """按「弧度」语义构造损失；内部按各损失的真实单位换算。"""
+    """Build the loss with radian semantics; the conversion into each loss's own unit happens inside."""
     if scale is None:
         scale = {"ArcFace": 30.0, "CosFace": 30.0, "SubCenterArcFace": 64.0,
                  "GCE": 30.0, "SCE": 30.0, "NormSoftmax": 30.0}[method]
@@ -58,7 +58,7 @@ def build_loss(method, num_classes, embed_dim, scale, margin_rad, subcenter_k, q
     miner = miners.MultiSimilarityMiner(epsilon=0.1)
 
     if method == "ArcFace":
-        # PML 单位＝度
+        # PML expects degrees
         return losses.ArcFaceLoss(num_classes=num_classes, embedding_size=embed_dim,
                                   scale=scale, margin=float(np.degrees(margin_rad))), miner
     if method == "SubCenterArcFace":
@@ -66,11 +66,11 @@ def build_loss(method, num_classes, embed_dim, scale, margin_rad, subcenter_k, q
                                            scale=scale, margin=float(np.degrees(margin_rad)),
                                            sub_centers=subcenter_k), miner
     if method == "CosFace":
-        # PML CosFace 单位＝弧度，直接传
+        # PML CosFace takes radians, so the value is passed through
         return losses.CosFaceLoss(num_classes=num_classes, embedding_size=embed_dim,
                                   scale=scale, margin=float(margin_rad)), miner
     if method == "NormSoftmax":
-        # 无 margin 的归一化 softmax（cosine classifier, m=0），即审稿人要求的普通 CE 基线
+        # normalised softmax without a margin (cosine classifier, m = 0), i.e. the plain CE baseline the reviewer asked for
         return losses.ArcFaceLoss(num_classes=num_classes, embedding_size=embed_dim,
                                   scale=scale, margin=0.0), miner
     if method == "GCE":

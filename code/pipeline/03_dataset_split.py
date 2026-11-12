@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-Step 3: 数据集划分
-将标注数据划分为 train / query / gallery / cross_source_test。
+Step 3: dataset splitting
+Split the annotated data into train / query / gallery / cross_source_test
 
-划分策略:
-  1. 跨源泛化测试集: deepflying + dunhuang_grottoes 全部留出
-     - 这两个数据源的可靠标签图像作为 query，在其余源的 gallery 中检索
-     - 用于验证模型跨数据源泛化能力
-  2. 其余5个数据源 (dh_v1, muraldh_512, muraldh_sr, hf_dunhuang, muraldh_seg)
-     的可靠标签图像按 70/15/15 分层划分 train/query/gallery
-  3. 分层抽样: 按 label + source 联合分层，保证各类别在各集合中比例一致
-  4. muraldh_sr 超分辨率变体处理:
-     - 同一原图的 X2/X3/X4/X6 变体必须放在同一集合，避免信息泄漏
-  5. uncertain 图像:
-     - 不参与 train/query 划分
-     - 全部加入 gallery 作为干扰项 (distractors)，增加检索难度
-     - 标记为 distractor=True，评估时不计入 relevant
+split strategy:
+  1. cross-source generalisation set: all of deepflying and dunhuang_grottoes held out
+     - reliable-label images from these two sources serve as queries, retrieved against the galleries of the remaining sources
+     - used to test how well the model generalises across sources
+  2. the other five sources (dh_v1, muraldh_512, muraldh_sr, hf_dunhuang, muraldh_seg)
+     reliable-label images into train/query/gallery at 70/15/15, stratified
+  3. stratified sampling: stratify jointly on label and source so every class keeps the same share in each split
+  4. handling of the muraldh_sr super-resolution variants:
+     - the X2/X3/X4/X6 variants of one source image must sit in one split, or information leaks
+  5. uncertain images:
+     - excluded from the train/query split
+     - all of them join the gallery as distractors, which makes retrieval harder
+     - flagged distractor = True, so it never counts as relevant at evaluation time
 
-输出:
+output:
   splits/train.csv
   splits/query.csv
   splits/gallery.csv
@@ -40,7 +40,7 @@ from config import (
 
 
 def load_all_labels():
-    """加载 Step 2 产出的全量标签"""
+    """Load the full label table produced by step 2"""
     rows = []
     with open(ALL_LABELS, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -54,13 +54,13 @@ def load_all_labels():
 
 def extract_sr_group_key(path, source):
     """
-    提取 muraldh_sr 的原图组键，确保同一原图的不同倍率变体不跨集合。
-    路径模式: .../Mural_SR/Mural_DataSet/0001.png  (X2/X3/X4/X6 在不同子目录)
-    实际路径可能是 .../Mural_DataSet/X2/0001.png 等格式
+    extract the original-image group key of muraldh_sr so that the scale variants of one original image never straddle two sets.
+    path pattern: .../Mural_SR/Mural_DataSet/0001.png  (X2/X3/X4/X6 sit in different subdirectories)
+    the actual path may look like .../Mural_DataSet/X2/0001.png
     """
     if source != "muraldh_sr":
         return None
-    # 提取文件名中的数字部分作为组键
+    # use the numeric part of the filename as the group key
     fname = os.path.basename(path)
     match = re.search(r'(\d+)', fname)
     if match:
@@ -70,7 +70,7 @@ def extract_sr_group_key(path, source):
 
 def split_by_stratified_group(records, train_ratio, query_ratio, gallery_ratio,
                               seed=42):
-    """兼容旧接口: 对非SR记录分层划分 (SR已在main中预处理)"""
+    """Legacy interface: stratified split for non-SR records (SR records are preprocessed in main)"""
     return split_by_stratified_group_with_sr(
         records, [], train_ratio, query_ratio, gallery_ratio, seed
     )
@@ -79,10 +79,10 @@ def split_by_stratified_group(records, train_ratio, query_ratio, gallery_ratio,
 def split_by_stratified_group_with_sr(records, sr_units, train_ratio,
                                        query_ratio, gallery_ratio, seed=42):
     """
-    分层分组划分 (支持SR预分组单元):
-      - records: 非SR的单条记录列表, 每条作为独立单元
-      - sr_units: SR预分组单元列表, 每个unit是list of records (整组同进退)
-      - 分层: 按 (label, source) 联合分层
+    Stratified grouped split (SR pre-grouped units are supported):
+      - records: list of non-SR records, each an independent unit
+      - sr_units: list of pre-grouped SR units, each a list of records (the whole group moves together)
+      - stratification: joint stratification by (label, source)
     """
     rng = np.random.RandomState(seed)
     strata = defaultdict(list)
@@ -135,7 +135,7 @@ def split_by_stratified_group_with_sr(records, sr_units, train_ratio,
 
 
 def write_csv(filepath, rows, extra_cols=None):
-    """写入划分 CSV"""
+    """Write the split CSVs"""
     if extra_cols is None:
         extra_cols = []
     fieldnames = [
@@ -152,7 +152,7 @@ def write_csv(filepath, rows, extra_cols=None):
 
 
 def compute_label_overlap(train_labels, test_labels):
-    """计算训练集和测试集的标签重叠率"""
+    """Compute the label overlap rate between the training and test sets"""
     train_set = set(train_labels)
     test_set = set(test_labels)
     overlap = train_set & test_set
@@ -166,7 +166,7 @@ def main():
 
     rows = load_all_labels()
 
-    # --- 预处理 muraldh_sr 组: 确保同组5变体标签统一、不跨集合 ---
+    # --- pre-process the muraldh_sr groups: keep the five variants of one group label-consistent and inside one split ---
     sr_groups = defaultdict(list)
     non_sr_rows = []
     for r in rows:
@@ -179,17 +179,17 @@ def main():
         else:
             non_sr_rows.append(r)
 
-    # 对每个SR组: 优先用HR原图(根目录)标签, 否则用组内最高置信度标签
-    # 如果组内有可靠标签, 全组统一为该标签并参与划分; 否则全组标为distractor
-    sr_reliable_units = []  # list of list (有可靠标签的组)
-    sr_distractor_units = []  # list of list (全组uncertain)
+    # per SR group: take the label of the HR original (root directory) if it has one, otherwise the highest-confidence label in the group
+    # if the group carries a reliable label, the whole group takes that label and joins the split; otherwise the whole group becomes a distractor
+    sr_reliable_units = []  # list of lists (groups with reliable labels)
+    sr_distractor_units = []  # list of lists (whole groups uncertain)
 
     for gk, members in sr_groups.items():
         hr = [m for m in members if "Mural_DataSet_LR" not in m["path"]]
         reliable_members = [m for m in members if m["label_type"] != "uncertain"]
 
         if reliable_members:
-            # 优先HR原图, 其次组内最高置信度
+            # prefer the HR original, then the group member with the highest confidence
             if hr and hr[0]["label_type"] != "uncertain":
                 best = hr[0]
             else:
@@ -198,7 +198,7 @@ def main():
             for m in members:
                 m["label"] = group_label
                 m["label_cn"] = CATEGORY_NAMES_CN.get(group_label, group_label)
-                # 保留原始 label_type 和 confidence, 但标签统一
+                # keep the original label_type and confidence, but make the label uniform across the group
             sr_reliable_units.append(members)
         else:
             for m in members:
@@ -206,16 +206,16 @@ def main():
                 m["label_cn"] = "干扰项"
             sr_distractor_units.append(members)
 
-    # 分离非SR数据的 reliable vs uncertain
+    # separate the non-SR images into reliable and uncertain
     non_sr_reliable = [r for r in non_sr_rows if r["label_type"] != "uncertain"]
     non_sr_uncertain = [r for r in non_sr_rows if r["label_type"] == "uncertain"]
 
-    # 分离跨源留出
+    # separate the cross-source hold-out
     cross_source = [r for r in non_sr_reliable if r["source"] in CROSS_SOURCE_HOLDOUT]
     main_source = [r for r in non_sr_reliable if r["source"] not in CROSS_SOURCE_HOLDOUT]
 
-    # 将SR可靠组以整体单元注入 main_source 前先临时修改split函数处理逻辑
-    # 简单方案: 将SR组作为"已分组记录"传入, 修改split函数支持
+    # the split function is modified temporarily so the reliable SR groups can be injected into main_source as whole units
+    # simple route: pass the SR groups in as pre-grouped records and extend the split function to accept them
     print(f"\n[INFO] 可靠标签: {len(non_sr_reliable) + sum(len(u) for u in sr_reliable_units)}, "
           f"uncertain: {len(non_sr_uncertain) + sum(len(u) for u in sr_distractor_units)}")
     print(f"[INFO] SR可靠组: {len(sr_reliable_units)}组 ({sum(len(u) for u in sr_reliable_units)}张), "
@@ -223,14 +223,14 @@ def main():
     print(f"[INFO] 跨源留出 ({'+'.join(CROSS_SOURCE_HOLDOUT)}): {len(cross_source)}")
     print(f"[INFO] 主源数据(非SR): {len(main_source)}")
 
-    # 分层分组划分: 非SR + SR可靠组
+    # stratified group split: non-SR images plus the reliable SR groups
     print(f"\n[INFO] 按 70/15/15 分层划分主源数据...")
     train, query, gallery = split_by_stratified_group_with_sr(
         main_source, sr_reliable_units,
         TRAIN_RATIO, QUERY_RATIO, GALLERY_RATIO, RANDOM_SEED
     )
 
-    # 标记 split 和 distractor
+    # mark split and distractor
     for r in train:
         r["split"] = "train"
         r["is_distractor"] = False
@@ -241,12 +241,12 @@ def main():
         r["split"] = "gallery"
         r["is_distractor"] = False
 
-    # 跨源数据作为额外 query（从主源 gallery 中检索）
+    # cross-source data as extra queries (retrieved against the main-source gallery)
     for r in cross_source:
         r["split"] = "cross_source_query"
         r["is_distractor"] = False
 
-    # uncertain 非SR图像加入 gallery 作为 distractors
+    # uncertain non-SR images join the gallery as distractors
     for r in non_sr_uncertain:
         r["split"] = "gallery"
         r["is_distractor"] = True
@@ -254,7 +254,7 @@ def main():
         r["label_cn"] = "干扰项"
     gallery.extend(non_sr_uncertain)
 
-    # SR全组uncertain的也加入gallery distractors (整组加入)
+    # whole SR groups that are uncertain join the gallery as distractors (the group moves as a unit)
     for unit in sr_distractor_units:
         for r in unit:
             r["split"] = "gallery"
@@ -263,16 +263,16 @@ def main():
             r["label_cn"] = "干扰项"
         gallery.extend(unit)
 
-    # 确保目录存在
+    # make sure the directory exists
     os.makedirs(SPLIT_DIR, exist_ok=True)
 
-    # 写入 CSV
+    # write the CSV
     write_csv(TRAIN_CSV, train)
     write_csv(QUERY_CSV, query)
     write_csv(GALLERY_CSV, gallery)
     write_csv(CROSS_SRC_CSV, cross_source)
 
-    # ============ 统计信息 ============
+    # ============ statistics ============
     total_distractors = len(non_sr_uncertain) + sum(len(u) for u in sr_distractor_units)
     stats = {
         "random_seed": RANDOM_SEED,
@@ -287,7 +287,7 @@ def main():
         "uncertain_distractors": total_distractors,
     }
 
-    # 各集合统计
+    # per-split statistics
     stats["splits"] = {
         "train": {
             "total": len(train),
@@ -313,7 +313,7 @@ def main():
         },
     }
 
-    # 标签重叠分析
+    # label-overlap analysis
     train_labels = set(r["label"] for r in train)
     query_labels = set(r["label"] for r in query)
     gallery_labels = set(r["label"] for r in gallery if not r["is_distractor"])
@@ -345,7 +345,7 @@ def main():
         },
     }
 
-    # 每类样本数（用于检查类别不平衡）
+    # samples per class (to expose class imbalance)
     all_labeled = train + query + [r for r in gallery if not r["is_distractor"]]
     label_counts = Counter(r["label"] for r in all_labeled)
     stats["class_distribution"] = {}
@@ -360,7 +360,7 @@ def main():
             "cross_source": sum(1 for r in cross_source if r["label"] == label),
         }
 
-    # muraldh_sr 组完整性检查
+    # muraldh_sr group-integrity check
     sr_train = set(extract_sr_group_key(r["path"], "muraldh_sr")
                    for r in train if r["source"] == "muraldh_sr")
     sr_query = set(extract_sr_group_key(r["path"], "muraldh_sr")
@@ -382,7 +382,7 @@ def main():
         json.dump(stats, f, ensure_ascii=False, indent=2)
     print(f"[SAVE] {stats_path}")
 
-    # ============ 打印汇总 ============
+    # ============ summary printing ============
     print("\n" + "=" * 60)
     print("Step 3 数据集划分 — 结果汇总")
     print("=" * 60)

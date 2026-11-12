@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""检查dh_v1和dunhuang_grottoes之间的完整重叠情况"""
+"""Measure the full overlap between dh_v1 and dunhuang_grottoes"""
 import csv, os, re
 
 SPLITS_DIR = r"<DATA_ROOT>\retrieval\splits"

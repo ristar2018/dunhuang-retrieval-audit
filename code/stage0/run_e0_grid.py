@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-run_e0_grid.py —— 生成并执行 E0-2 / E0-3 训练网格（可断点续跑：已有 best_checkpoint.pt 即跳过）
+run_e0_grid.py -- build and run the E0-2 / E0-3 training grids (resumable: a run whose best_checkpoint.pt already exists is skipped)
 
-E0-2  解耦 scale / margin / 子中心数（修正 margin 单位后重训）
-      e02a ArcFace s=30 m=0.5rad      基线：原稿"标准 ArcFace"应有的样子
-      e02b ArcFace s=64 m=0.5rad      与 K1 同 scale，隔离 scale
-      e02c SC-K1   s=30 m=0.5rad      与 ArcFace 同 scale，隔离架构
-      (已有) SC-K1 s=64 m=0.5rad      原稿 K1
-E0-3  固定优化步数预算（S0 的 40 epoch = 2000 步，作为各数据集共同预算）
+E0-2  decouple scale / margin / sub-centre count (retrained after fixing the margin unit)
+      e02a ArcFace s=30 m=0.5 rad      baseline: what the manuscript's "standard ArcFace" should look like
+      e02b ArcFace s=64 m=0.5 rad      same scale as K1, which isolates the scale
+      e02c SC-K1   s=30 m=0.5 rad      same scale as ArcFace, which isolates the architecture
+      (existing) SC-K1 s=64 m=0.5 rad      the manuscript's K1
+E0-3  a fixed optimiser-step budget (S0's 40 epochs = 2,000 steps, used as the common budget)
       e03  ArcFace s=64 m=0.5rad  max_steps=2000  on S1/S2/S3
       e03  GCE      s=30          max_steps=2000  on S1/S2/S3
-      e03l ArcFace s=64 m=0.5rad  max_steps=9440  on S0（反向对齐 S2 的预算）
+      e03l ArcFace s=64 m=0.5 rad  max_steps=9440  on S0 (matching the S2 budget in the other direction)
 """
 import subprocess
 import sys
@@ -37,12 +37,12 @@ for ds in ["S0", "S2", "S3"]:
         JOBS.append(job("e02a", "ArcFace", ds, sd, 30, 0.5))
         JOBS.append(job("e02b", "ArcFace", ds, sd, 64, 0.5))
         JOBS.append(job("e02c", "SubCenterArcFace", ds, sd, 30, 0.5, k=1))
-# ---- E0-3 固定步数 ----
+# ---- E0-3, fixed step budget ----
 for ds in ["S1", "S2", "S3"]:
     for sd in SEEDS:
         JOBS.append(job("e03", "ArcFace", ds, sd, 64, 0.5, k=1, max_steps=2000))
         JOBS.append(job("e03", "GCE", ds, sd, 30, None, k=1, max_steps=2000))
-# ---- E0-3 反向：S0 补足到 S2 的步数 ----
+# ---- E0-3, reverse direction: pad S0 to the S2 step budget ----
 for sd in SEEDS:
     JOBS.append(job("e03l", "ArcFace", "S0", sd, 64, 0.5, k=1, max_steps=9440,
                     epochs=189))

@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
 r"""
-E1-1 交叉拟合划分构造器。
+E1-1 cross-fitting split builder
 
-背景：原划分里人工标签（label_type=='seed'）只有 2,278 张，全部来自 hf_dunhuang
-一个来源；原始 train/query/gallery 分别是 1,602 / 337 / 339。评估集小到 339 张
-是原稿一切问题（乃至审稿人都会质疑）的根。本脚本把这 2,278 张人工标签图做
-5 折交叉拟合，每折给出全局不相交的 query / gallery / 训练种子部分，从而把
-干净的留出评估从 339 张扩到 2,278 张（每折约 456 张）。
+Background: the original split holds only 2,278 human labels (label_type == 'seed'), all from hf_dunhuang
+a single source; the original train/query/gallery hold 1,602 / 337 / 339 images. An evaluation set of only 339
+is the root of every problem in the manuscript, and the one a reviewer will question. This script takes the 2,278 human-labelled images and
+five-fold cross-fitting, where each fold yields globally disjoint query / gallery / training-seed parts, so that
+the clean held-out evaluation grows from 339 images to 2,278 (about 456 per fold)
 
-规则：
-- 折叠单位＝DINOv3 特征在 cos>0.95 下的近重复连通分量（实测 2,278 张里只有
-  30 个分量大于 1、共 61 张，故分组几乎不影响平衡性，但保证近重复不跨折）。
-- 按类别分层：分量按大小降序，逐个放进「该类当前图数最少」的折。
-- 折 k：query = 折 k，gallery = 折 (k+1)%5，训练种子 = 其余 3 折。
-  这样 query 与 gallery 不相交、都不参与该折训练。
-- 伪标签池 L1/L2/L3 沿用原规则，且**固定取自原 train.csv 的非 seed 行**，
-  因此三层规模与原稿一致（1,396 / 4,562 / 1,476），唯一变动的是 L0。
+rules:
+- the fold unit is the near-duplicate connected component of the DINOv3 features at cos > 0.95 (measured: among the 2,278 images only
+  30 components hold more than one image, 61 images in all, so grouping barely disturbs the balance but keeps near-duplicates out of different folds)
+- stratified by class: components are taken largest first and each goes to the fold that currently holds the fewest images of that class
+- fold k: query = fold k, gallery = fold (k+1) mod 5, training seeds = the remaining three folds
+  so query and gallery are disjoint and neither takes part in that fold's training
+- the pseudo-label tiers L1/L2/L3 follow the original rule and are **fixed to the non-seed rows of the original train.csv**,
+  so the three tiers match the manuscript in size (1,396 / 4,562 / 1,476); only L0 changes
 
-产物：e1_splits/*.json
+output: e1_splits/*.json
 """
 
 import json
@@ -41,7 +41,7 @@ feat = np.load(RET / "features" / "dinov3_features.npy").astype(np.float32)
 expert = lab[lab.label_type == "seed"].reset_index(drop=True)
 print(f"人工标签集 {len(expert)} 张，{expert.label.nunique()} 类，来源 {expert.source.unique()}")
 
-# ---------- 1. 近重复连通分量 ----------
+# ---------- 1. near-duplicate connected components ----------
 X = feat[expert.global_idx.values]
 X = X / (np.linalg.norm(X, axis=1, keepdims=True) + 1e-12)
 S = X @ X.T
@@ -66,7 +66,7 @@ _, comp = np.unique(roots, return_inverse=True)
 expert["comp"] = comp
 print(f"近重复分量 {expert.comp.nunique()} 个（cos>{TAU}）")
 
-# ---------- 2. 分层分折 ----------
+# ---------- 2. stratified fold assignment ----------
 expert["fold"] = -1
 for cls, grp in expert.groupby("label", sort=False):
     counts = np.zeros(N_FOLD, dtype=int)
@@ -83,13 +83,13 @@ cross = pd.crosstab(expert.label, expert.fold)
 print("每类每折张数（前 6 类）：")
 print(cross.head(6).to_string())
 
-# ---------- 3. 伪标签层（固定在原 train 的非 seed 行上，复刻原口径） ----------
+# ---------- 3. pseudo-label tiers (fixed to the non-seed rows of the original train split, reproducing the original protocol) ----------
 pool = lab.merge(train_orig[["global_idx"]], on="global_idx", how="inner")
 non_seed = pool[pool.label_type != "seed"]
 L1 = non_seed[(non_seed.label_type == "seed_knn") & (non_seed.confidence == 1.0)]
 L2 = non_seed[(non_seed.label_type == "seed_knn") & (non_seed.confidence < 1.0)]
-# 实测原产物：L3 = S3-S2 新增的 1,476 张 = expanded_knn 1,369 + uncertain 107，
-# 即"train 中不属于 L0/L1/L2 的全部"，而不是只有 expanded_knn。
+# measured on the original artefacts: L3 = the 1,476 images that S3 adds over S2 = 1,369 expanded_knn + 107 uncertain,
+# i.e. everything in train outside L0/L1/L2, not only expanded_knn
 rest = non_seed[~non_seed.global_idx.isin(pd.concat([L1, L2]).global_idx)]
 L3 = rest
 print(f"\nL3 构成：{L3.label_type.value_counts().to_dict()}")
@@ -99,7 +99,7 @@ assert len(L1) == 1396 and len(L2) == 4562 and len(L3) == 1476, "层规模与原
 
 L1i, L2i, L3i = (list(map(int, x.global_idx.values)) for x in (L1, L2, L3))
 
-# ---------- 4. 写盘 ----------
+# ---------- 4. write to disk ----------
 rng = np.random.default_rng(SEED)
 summary = []
 for k in range(N_FOLD):
@@ -117,7 +117,7 @@ for k in range(N_FOLD):
         "S2": t0 + L1i + L2i,
         "S3": t0 + L1i + L2i + L3i,
     }
-    # 等样本量控制组：每档从对应训练集里抽 n 张（S0′ 即 S0 本身）
+    # size-matched control sets: draw n images from the matching training tier (S0' is S0 itself)
     for name in ("S0", "S1", "S2", "S3"):
         if name == "S0":
             tiers["S0_prime"] = list(t0)
@@ -143,14 +143,14 @@ for k in range(N_FOLD):
           f"S0..S3 = {[len(tiers[f'S{i}']) for i in range(4)]} | "
           f"prime = {[len(tiers[f'S{i}_prime']) for i in range(4)]}")
 
-# 覆盖性断言：5 折 query 合并应恰为全体人工标签
+# coverage assertion: the five folds' query sets together must equal the full human-labelled set
 allq = sorted(sum([json.load(open(OUT / f"fold{k}_query.json")) for k in range(N_FOLD)], []))
 allg = sorted(sum([json.load(open(OUT / f"fold{k}_gallery.json")) for k in range(N_FOLD)], []))
 assert allq == sorted(expert.global_idx.tolist()), "query 五折未覆盖全部人工标签"
 assert allg == sorted(expert.global_idx.tolist()), "gallery 五折未覆盖全部人工标签"
 print(f"\n覆盖性检查通过：5 折 query 与 5 折 gallery 合并均恰为 {len(expert)} 张人工标签")
 
-# 无跨折泄漏断言：每折 query/gallery 与 train_seed 不相交
+# assertion that no fold leaks: each fold's query/gallery is disjoint from train_seed
 for k in range(N_FOLD):
     q = set(json.load(open(OUT / f"fold{k}_query.json")))
     g = set(json.load(open(OUT / f"fold{k}_gallery.json")))

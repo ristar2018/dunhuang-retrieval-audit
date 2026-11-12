@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 r"""
-E1-1 交叉拟合训练网格驱动。
+E1-1 driver for the cross-fitted training grid
 
-网格：
-  主网格  5 折 × {S0,S1,S2,S3} × 4 方法 × 3 seeds = 240 run
-  控制组  5 折 × {S0',S1',S2',S3'} × 2 方法 × 3 seeds = 120 run
+grids:
+  main grid  5 folds x {S0,S1,S2,S3} x 4 methods x 3 seeds = 240 runs
+  control grid  5 folds x {S0',S1',S2',S3'} x 2 methods x 3 seeds = 120 runs
 
-方法配置（全部按已修正的 margin 语义，margin 一律按弧度书写）：
-  ArcFace   s=30, m=0.5 rad —— 这是原稿"标准 ArcFace"本该有的配置
-            （原稿传 m=0.5 被 PML 当度，实际 0.0087 rad ≈ 无 margin）
+method configuration (all with the corrected margin semantics; every margin is written in radians):
+  ArcFace   s=30, m=0.5 rad -- what the manuscript's "standard ArcFace" should have been
+            (the manuscript passed m = 0.5, PML read it as degrees, so the real margin was 0.0087 rad, i.e. none)
   GCE       s=30, q=0.7
   SCE       s=30
   SC-K3     SubCenterArcFace s=64, m=0.5 rad, K=3
 
-不跑 SC-K1：E0-2 已证明 sub_centers=1 与 ArcFaceLoss 在同 scale/margin 下
-state_dict 逐位相同（最大绝对差 0.000e+00），故与 ArcFace s=64 重复。
+SC-K1 is not re-run: E0-2 already showed that with sub_centers = 1, the same scale and the same margin, ArcFaceLoss
+state_dict is bit-identical (largest absolute difference 0.000e+00), so it duplicates ArcFace s=64
 
-断点续跑：目标目录已存在 best_checkpoint.pt 即跳过。
+Resumable: a target directory that already holds best_checkpoint.pt is skipped
 """
 
 import subprocess

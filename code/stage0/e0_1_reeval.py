@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""E0-1：用现有 best_checkpoint.pt 在多种评估集定义下重算 MAP/R@K。
+"""E0-1: recompute MAP/R@K from the existing best_checkpoint.pt under several definitions of the evaluation set.
 
-目的：判定 S2 峰值是「训练集规模/噪声的真实收益」还是「评估 ground truth 与训练伪标签同源」
-造成的测量偏差。不重训、不写盘原始数据，只输出 CSV/JSON。
+Purpose: decide whether the S2 peak is a real gain from training-set size or noise, or an artefact of the evaluation ground truth sharing its source with the training pseudo-labels
+causes a measurement bias. Nothing is retrained, no raw data is written, and only CSV/JSON is produced
 
-评估集变体（query 恒为 label_type=='seed'，与运行时 eval_retrieval.py 一致）：
-  A_current   gallery ∪ cross，全部 label_type            ← 论文现用口径，须复现论文数字
-  B_seed_only gallery ∪ cross，仅 seed（专家标签）           ← 干净 ground truth
-  C_nocross   gallery，全部 label_type（不含 cross）
+evaluation-set variants (query is always label_type == 'seed', as in eval_retrieval.py at run time):
+  A_current   gallery U cross, every label_type            <- the definition the paper uses; must reproduce the paper's numbers
+  B_seed_only gallery U cross, seed labels only (expert)           <- clean ground truth
+  C_nocross   gallery, every label_type (cross excluded)
   D_L0_L3     gallery ∪ cross，label_type ∈ {seed,seed_knn,expanded_knn}
-  E_labeled   gallery，is_distractor==False，全部 label_type（1235 张）
+  E_labeled   gallery, is_distractor == False, every label_type (1,235 images)
 """
 import argparse, json, re, sys
 from collections import Counter
@@ -28,7 +28,7 @@ ANNO = BASE / "annotations"
 
 
 class ProjectionHead(nn.Module):
-    """与 retrieval/code/train_metric.py:50-64 逐字一致"""
+    """Word-for-word the same as retrieval/code/train_metric.py:50-64"""
     def __init__(self, input_dim=768, hidden_dim=512, embed_dim=512, dropout=0.1):
         super().__init__()
         self.net = nn.Sequential(
@@ -55,7 +55,7 @@ def extract_embeddings(model, features, device, batch_size=512):
 
 
 def retrieval_metrics(q_emb, q_labels, g_emb, g_labels, ks=(1, 5, 10)):
-    """与 retrieval/code/eval_retrieval.py:60-141 口径一致（AP 为全排序累计）"""
+    """Same convention as retrieval/code/eval_retrieval.py:60-141 (AP accumulated over the full ranking)"""
     sim = q_emb @ g_emb.T
     order = np.argsort(-sim, axis=1)
     Nq = len(q_labels)

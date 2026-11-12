@@ -1,26 +1,26 @@
 # -*- coding: utf-8 -*-
 r"""
-E1-2b 「扩展有益」结论对伪标签错误率的敏感性。
+E1-2b how sensitive the "enlargement helps" conclusion is to the pseudo-label error rate
 
-动机
+why this exists
 ----
-E1-2 已证明：同一批 gallery 图像，若其传播标签被计为正确答案，扩展训练集
-看起来有益（Δ(S2−S0)=+0.03~+0.07）；若不被计分，扩展看起来有害
-（−0.12~−0.18）。两种处置对应「传播标签全对」与「全错」两个极端，
-真实结论落在两者之间，位置由该批标签的**实际错误率 ε** 决定。
+E1-2 already showed that, for one and the same gallery, counting propagated labels as correct answers makes the enlarged training set
+looks beneficial (delta(S2-S0) = +0.03 to +0.07); if they are not scored, enlargement looks harmful
+(-0.12 to -0.18). The two treatments are the extremes "every propagated label is right" and "every one is wrong",
+The truth lies between the two, at a position set by the **actual error rate epsilon** of those labels
 
-本脚本不猜测 ε，而是直接测出结论的**翻转点**：
-固定 gallery 组成（干净 339 + 17,000 张伪标签图），把其中比例 ρ 的伪标签
-改写成随机错误类别，扫描 ρ，观察 Δ(S2−S0) 如何从 + 变 −。
+The script does not guess epsilon; it measures the **flip point** of the conclusion directly:
+hold the gallery composition fixed (the clean 339 plus 17,000 pseudo-labelled images) and give a fraction rho of the pseudo-labelled
+relabel a fraction rho of them as a random wrong class and watch delta(S2-S0) go from + to -
 
-于是可以给出一个与 ε 估计无关的判决句：
-「该收益仅在 gallery 传播标签错误率低于 ρ* 时成立」——
-ρ* 是可复算的常数，ε 由后续人工审计或外部证据填入即可定论。
+which yields a verdict that does not depend on any estimate of epsilon:
+"the gain holds only while the error rate of the propagated gallery labels stays below rho*" --
+rho* is a recomputable constant; once epsilon is supplied by a later manual audit or by external evidence, the verdict follows
 
-同时输出伪标签池的投票差额分布，作为 ε 量级的下界提示
-（差额接近 0 的样本，传播标签近似于在若干类之间随机挑一个）。
+the vote-margin distribution of the pseudo-label pool is output as well, as a lower-bound hint on the size of epsilon
+(where the margin is near zero, the propagated label is close to a random pick among several classes)
 
-产物：e1_2b_error_sensitivity.csv、e1_2b_vote_margin.csv
+output: e1_2b_error_sensitivity.csv, e1_2b_vote_margin.csv
 """
 
 import re
@@ -67,7 +67,7 @@ def main():
     assert not (set(pool) & sp["train"]), "伪标签池与训练集有重叠——记忆化混淆需单独处理"
     print(f"[data] query={len(q_idx)} 干净={len(clean_g)} 伪标签池={len(pool)}（与 train 重叠 0）")
 
-    # ---- 投票差额分布（ε 的量级提示，不能当作 ε 的估计）----
+    # ---- vote-margin distribution (an order-of-magnitude hint for epsilon, not an estimate of it) ----
     rows = []
     gdf = pd.read_csv(SPL / "gallery.csv", encoding="utf-8")
     cdf = pd.read_csv(SPL / "cross_source_test.csv", encoding="utf-8")
@@ -103,7 +103,7 @@ def main():
     print("\n=== 伪标签池投票差额（top1−top2）===")
     print(vm.round(3).to_string(index=False))
 
-    # ---- gallery 组成 ----
+    # ---- gallery composition ----
     rng = np.random.default_rng(RNG_SEED)
     perm = rng.permutation(len(pool))
     sel = [pool[i] for i in perm[:N_P]]
@@ -113,7 +113,7 @@ def main():
     qf = feat[np.array(q_idx)]
     ql = np.array([cidx[cat[i]] for i in q_idx])
 
-    # 语义错误：从其余 15 类均匀抽取（不是"置空"，是"标成另一个类"）
+    # semantic error: draw uniformly from the other 15 classes (not "blanked", but relabelled as another class)
     wrong = (gl_true + rng.integers(1, n_cls, size=len(gl_true))) % n_cls
     ord_corrupt = rng.permutation(len(gl_true))
 

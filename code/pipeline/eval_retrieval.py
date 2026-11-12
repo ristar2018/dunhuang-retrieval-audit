@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-eval_retrieval.py - 检索评估模块 (C2)
+eval_retrieval.py - retrieval evaluation module (C2)
 
-评估指标:
+metrics:
   - Recall@K (K=1, 5, 10, 20)
   - MAP (Mean Average Precision)
   - NDCG@10
 
-评估协议:
-  - Query集: 只用L0标签 (金标准)
-  - Gallery集: 包含所有L0-L3样本 (模拟真实检索)
-  - 冻结DINOv3特征 + 训练好的投影头 → 嵌入空间
-  - SubCenterArcFace: 用子中心max相似度
+evaluation protocol:
+  - Query: L0 labels only (the gold standard)
+  - Gallery: every L0-L3 sample (as in a real retrieval setting)
+  - frozen DINOv3 features plus the trained projection head -> embedding space
+  - SubCenterArcFace: take the maximum over sub-centre similarities
 
-用法:
+usage:
   python eval_retrieval.py --checkpoint results/xxx/best_checkpoint.pt --query_split L0 --gallery_split all
-  python eval_retrieval.py --experiment_dir results/ --eval_all  # 评估所有实验
+  python eval_retrieval.py --experiment_dir results/ --eval_all  # evaluate every experiment
 """
 
 import json
@@ -30,14 +30,14 @@ import torch
 import torch.nn.functional as F
 from pathlib import Path
 
-# ==================== 路径 ====================
+# ==================== paths ====================
 BASE_DIR = Path(r"<DATA_ROOT>\retrieval")
 FEATURES_NPY = BASE_DIR / "features" / "dinov3_features.npy"
 LABELS_CSV = BASE_DIR / "annotations" / "all_labels.csv"
-SPLIT_DIR = BASE_DIR / "splits"  # 4个CSV: train.csv, query.csv, gallery.csv, cross_source_test.csv
+SPLIT_DIR = BASE_DIR / "splits"  # 4 CSVs: train.csv, query.csv, gallery.csv, cross_source_test.csv
 
 
-# ==================== 投影头 (需与训练时一致) ====================
+# ==================== projection head (must match training) ====================
 
 class ProjectionHead(torch.nn.Module):
     def __init__(self, input_dim=768, hidden_dim=512, embed_dim=512, dropout=0.1):
@@ -55,27 +55,27 @@ class ProjectionHead(torch.nn.Module):
         return self.net(x)
 
 
-# ==================== 检索核心 ====================
+# ==================== retrieval core ====================
 
 def compute_retrieval_metrics(query_embeddings, query_labels,
                                gallery_embeddings, gallery_labels,
                                k_values=[1, 5, 10, 20]):
-    """计算检索指标
+    """Compute the retrieval metrics
     
     Args:
         query_embeddings: (Nq, D) L2-normalized
-        query_labels: (Nq,) 类别索引
+        query_labels: (Nq,) class indices
         gallery_embeddings: (Ng, D) L2-normalized
-        gallery_labels: (Ng,) 类别索引
-        k_values: 评估的K值列表
+        gallery_labels: (Ng,) class indices
+        k_values: the list of K values to evaluate
     
     Returns:
         dict: {metric_name: value}
     """
-    # 计算相似度矩阵
+    # compute the similarity matrix
     sim_matrix = query_embeddings @ gallery_embeddings.T  # (Nq, Ng)
     
-    # 排序 (降序)
+    # sort (descending)
     sorted_indices = np.argsort(-sim_matrix, axis=1)  # (Nq, Ng)
     
     Nq = len(query_labels)
@@ -85,7 +85,7 @@ def compute_retrieval_metrics(query_embeddings, query_labels,
     recalls = {}
     for k in k_values:
         top_k_indices = sorted_indices[:, :k]
-        # 判断top-k中是否有与query相同类别的gallery样本
+        # check whether any of the top-k gallery hits shares the query's class
         top_k_labels = gallery_labels[top_k_indices]  # (Nq, k)
         correct = (top_k_labels == query_labels[:, None]).any(axis=1)
         recalls[f'Recall@{k}'] = float(correct.mean())
@@ -96,10 +96,10 @@ def compute_retrieval_metrics(query_embeddings, query_labels,
         true_label = query_labels[q_idx]
         sorted_labels = gallery_labels[sorted_indices[q_idx]]
         
-        # 判断每个位置是否正确
+        # check whether each rank is a hit
         is_relevant = (sorted_labels == true_label).astype(float)
         
-        # 计算AP
+        # compute AP
         cumsum = np.cumsum(is_relevant)
         precision_at_k = cumsum / (np.arange(len(is_relevant)) + 1)
         ap = (precision_at_k * is_relevant).sum() / max(is_relevant.sum(), 1)
@@ -115,7 +115,7 @@ def compute_retrieval_metrics(query_embeddings, query_labels,
         true_label = query_labels[q_idx]
         sorted_labels = gallery_labels[sorted_indices[q_idx]]
         
-        # 相关性判断
+        # relevance judgement
         is_relevant = (sorted_labels == true_label).astype(float)
         
         # DCG@10
@@ -142,7 +142,7 @@ def compute_retrieval_metrics(query_embeddings, query_labels,
 
 
 def extract_embeddings(model, features, device, batch_size=256):
-    """用投影头提取嵌入向量"""
+    """Extract embeddings through the projection head"""
     model.eval()
     embeddings = []
     
@@ -156,31 +156,31 @@ def extract_embeddings(model, features, device, batch_size=256):
     return np.vstack(embeddings)
 
 
-# ==================== 数据加载 ====================
+# ==================== data loading ====================
 
 def load_evaluation_data(features_all, labels_df, split_data,
                          query_label_type='L0', gallery_label_type='all'):
-    """加载评估数据
+    """Load the evaluation data
     
     Args:
-        query_label_type: Query标签类型 ('L0' only, 或 'all')
-        gallery_label_type: Gallery标签类型 ('all' = L0-L3, 'L0_only' 等)
+        query_label_type: query label type ('L0' only, or 'all')
+        gallery_label_type: gallery label type ('all' = L0-L3, 'L0_only', ...)
     """
-    # split_data 是 dict: {'train': set, 'query': set, 'gallery': set, 'cross': set}
+    # split_data is a dict: {'train': set, 'query': set, 'gallery': set, 'cross': set}
     query_indices = set(split_data.get('query', []))
     gallery_indices = set(split_data.get('gallery', []))
     cross_indices = set(split_data.get('cross', []))
     
-    # 类别编码 (列名是'label')
+    # class encoding (the column is named 'label')
     categories = sorted(labels_df['label'].unique())
     cat_to_idx = {cat: idx for idx, cat in enumerate(categories)}
     
-    # 构建 global_idx → DataFrame行号 的映射
+    # map global_idx -> DataFrame row
     idx_to_row = dict(zip(labels_df['global_idx'], labels_df.index))
-    # 构建 global_idx → label 的映射
+    # map global_idx -> label
     idx_to_label = dict(zip(labels_df['global_idx'], labels_df['label']))
     
-    # Query: 默认只用L0 (seed)
+    # Query: L0 (seed) only by default
     if query_label_type == 'L0':
         query_global = [g for g in query_indices if g in idx_to_row]
         query_rows = [idx_to_row[g] for g in query_global]
@@ -192,13 +192,13 @@ def load_evaluation_data(features_all, labels_df, split_data,
     
     query_idx = labels_df.iloc[query_rows]['global_idx'].tolist()
     query_labels = np.array([cat_to_idx[idx_to_label[g]] for g in query_idx])
-    # features_all 按 global_idx 索引
+    # features_all is indexed by global_idx
     query_features = features_all[query_idx]
     
     print(f"  Query: {len(query_idx)} (label_type={query_label_type})")
     print(f"  Query类别分布: {dict(zip(*np.unique(query_labels, return_counts=True)))}")
     
-    # Gallery: 所有非query的样本 (或指定标签范围)
+    # Gallery: every non-query sample (or a given label range)
     all_gallery_global = gallery_indices | cross_indices
     if gallery_label_type == 'L0_L3':
         valid_types = {'seed', 'seed_knn', 'expanded_knn'}
@@ -218,31 +218,31 @@ def load_evaluation_data(features_all, labels_df, split_data,
             gallery_features, gallery_labels, gallery_idx)
 
 
-# ==================== 主函数 ====================
+# ==================== main ====================
 
 def evaluate_checkpoint(checkpoint_path, features_all, labels_df, split_data,
                         device='cuda'):
-    """评估单个checkpoint"""
+    """Evaluate a single checkpoint"""
     print(f"\n  加载checkpoint: {checkpoint_path}")
     ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
-    # 重建模型
+    # rebuild the model
     config = ckpt.get('config', {})
     embed_dim = config.get('embed_dim', 512)
     model = ProjectionHead(input_dim=768, hidden_dim=512, embed_dim=embed_dim).to(device)
     model.load_state_dict(ckpt['model_state_dict'])
     
-    # 加载评估数据
+    # load the evaluation data
     q_feat, q_labels, q_idx, g_feat, g_labels, g_idx = load_evaluation_data(
         features_all, labels_df, split_data
     )
     
-    # 提取嵌入
+    # extract embeddings
     print("  提取嵌入...")
     q_emb = extract_embeddings(model, q_feat, device)
     g_emb = extract_embeddings(model, g_feat, device)
     
-    # 计算指标
+    # compute the metrics
     print("  计算检索指标...")
     metrics = compute_retrieval_metrics(q_emb, q_labels, g_emb, g_labels)
     
@@ -262,12 +262,12 @@ def main():
     args = parser.parse_args()
     device = args.device if torch.cuda.is_available() else 'cpu'
     
-    # 加载全局数据
+    # load the global table
     print("[1/3] 加载全局数据...")
     features_all = np.load(str(FEATURES_NPY))
     labels_df = pd.read_csv(LABELS_CSV, encoding='utf-8')
     
-    # 从4个CSV加载数据划分
+    # load the split from the four CSVs
     split_data = {}
     for split_name, csv_name in [('train', 'train.csv'), ('query', 'query.csv'),
                                   ('gallery', 'gallery.csv'), ('cross', 'cross_source_test.csv')]:
@@ -280,7 +280,7 @@ def main():
     all_results = {}
     
     if args.checkpoint:
-        # 评估单个checkpoint
+        # evaluate one checkpoint
         print(f"\n[2/3] 评估: {args.checkpoint}")
         metrics = evaluate_checkpoint(
             args.checkpoint, features_all, labels_df, split_data, device
@@ -289,7 +289,7 @@ def main():
         all_results[exp_name] = metrics
     
     elif args.experiment_dir and args.eval_all:
-        # 评估目录下所有实验
+        # evaluate every experiment under a directory
         exp_dir = Path(args.experiment_dir)
         checkpoints = list(exp_dir.glob('*/best_checkpoint.pt'))
         print(f"\n[2/3] 找到 {len(checkpoints)} 个实验")
@@ -310,7 +310,7 @@ def main():
         print("请指定 --checkpoint 或 --experiment_dir --eval_all")
         sys.exit(1)
     
-    # 保存结果
+    # save results
     print(f"\n[3/3] 保存结果...")
     output_path = args.output
     if output_path is None:
@@ -324,7 +324,7 @@ def main():
     
     print(f"结果保存至: {output_path}")
     
-    # 打印汇总表
+    # print the summary table
     print("\n" + "=" * 80)
     print("汇总结果")
     print("=" * 80)

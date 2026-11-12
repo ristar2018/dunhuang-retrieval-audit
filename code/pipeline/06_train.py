@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Step 6: 训练 Pipeline
-DINOv3 + LoRA + SubCenterArcFace 度量学习训练。
-- 优化器: AdamW (backbone LoRA lr=1e-4, head lr=5e-4)
-- 调度器: CosineAnnealingLR + warmup
-- 损失: CrossEntropy (ArcFace/CosFace logits)
-- 评估: 每 EVAL_EVERY epoch 在 query/gallery/cross-source 上评估
-- 混合精度: BF16 (Blackwell GPU支持)
+Step 6: training pipeline
+Metric-learning training with DINOv3 + LoRA + SubCenterArcFace
+- optimiser: AdamW (backbone LoRA lr = 1e-4, head lr = 5e-4)
+- scheduler: CosineAnnealingLR with warm-up
+- loss: cross-entropy over the ArcFace/CosFace logits
+- evaluation: every EVAL_EVERY epochs on query/gallery/cross-source
+- mixed precision: BF16 (supported by the Blackwell GPU)
 """
 import os, sys, json, time, math
 import numpy as np
@@ -43,7 +43,7 @@ def set_seed(seed=RANDOM_SEED):
 
 
 def build_optimizer(model):
-    """分层学习率：LoRA参数低学习率，head高学习率"""
+    """Layer-wise learning rates: a low rate for the LoRA parameters and a high rate for the head"""
     backbone_params = []
     head_params = []
     for name, param in model.named_parameters():

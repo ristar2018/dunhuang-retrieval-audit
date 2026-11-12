@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""E1-4：干净协议下的「缺两条基线」补跑。
+"""E1-4: the two missing baselines, run under the clean protocol.
 
-审稿意见 Major #2 要求补两类基线，原稿一条都没跑：
-  1. 无 margin 的归一化 softmax（= 普通 CE 的 cosine 版）；
-  2. 至少一种标准度量学习目标（已在 E0-2 跑过 CosFace / CircleLoss / ProxyNCA 的 S0）。
+reviewer comment Major #2 asked for two families of baselines; the manuscript ran neither:
+  1. normalised softmax without a margin (= the cosine version of plain CE);
+  2. at least one standard metric-learning objective (CosFace / CircleLoss / ProxyNCA at S0 were already run in E0-2)
 
-这里在 E1-1 的 5 折干净协议上补 NormSoftmax(m=0) 与 CosFace(m=0.5 rad)，
-tier 取 S0 / S2 / S3（S0 = 只有人工标签，S2 = 原稿声称的最优档，S3 = 全量）。
-5 折 × 3 档 × 2 方法 × 3 seed = 90 run。
+here NormSoftmax (m = 0) and CosFace (m = 0.5 rad) are added on the five-fold clean protocol of E1-1,
+tier takes S0 / S2 / S3 (S0 = human labels only, S2 = the tier the manuscript calls optimal, S3 = everything)
+5 folds x 3 tiers x 2 methods x 3 seeds = 90 runs
 """
 import subprocess
 import sys
@@ -21,8 +21,8 @@ SPLITS = HERE / "e1_splits"
 OUT = HERE / "runs_e1"
 
 METHODS = [
-    ("NormSoftmax", 30.0, 0.0),   # 无 margin
-    ("CosFace", 30.0, 0.5),       # 弧度
+    ("NormSoftmax", 30.0, 0.0),   # no margin
+    ("CosFace", 30.0, 0.5),       # radians
 ]
 TIERS = ["S0", "S2", "S3"]
 SEEDS = [42, 123, 456]

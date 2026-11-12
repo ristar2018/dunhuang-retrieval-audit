@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""E0-1 汇总：在干净 gallery（F_seed_all, n=1941）上做配对检验，并给出污染度核算。"""
+"""E0-1 summary: paired tests on the clean gallery (F_seed_all, n = 1941), with the contamination accounting."""
 from pathlib import Path
 
 import numpy as np

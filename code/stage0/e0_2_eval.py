@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""E0-2/E0-3/E0-4 评估：把「原稿 129 个 run」与「阶段 0 新训 run」放到同一评估协议下。
+"""E0-2/E0-3/E0-4 evaluation: put the 129 manuscript runs and the newly trained stage-0 runs under one evaluation protocol.
 
-三个 gallery 口径：
-  A_current   原稿口径（gallery∪cross，全部 label_type，21,703）——复现论文数字
-  B_seed_only 严格干净（339 张专家标签，与训练集完全不相交）
-  F_seed_all  干净扩容（1,941 张专家标签）
+three gallery definitions:
+  A_current   the manuscript's definition (gallery U cross, every label_type, 21,703) -- reproduces the paper's numbers
+  B_seed_only is strictly clean (339 expert labels, fully disjoint from the training set)
+  F_seed_all  the enlarged clean set (1,941 expert labels)
 
-同时评估 best / final / epoch{10,20,30,40}，用于 E0-4（选模规则敏感性）。
+best / final / epoch{10,20,30,40} are all evaluated, for E0-4 (sensitivity of the checkpoint-selection rule)
 """
 import re
 import sys
@@ -54,7 +54,7 @@ def ckpts(d):
     for p in sorted(d.glob("checkpoint_epoch*.pt")):
         ep = re.search(r"epoch(\d+)", p.name).group(1)
         out.append((f"ep{ep}", p))
-    # 新训 run 的 best 已写入 checkpoint 的 epoch 字段，避免重复计分
+    # for newly trained runs the epoch field of the checkpoint already marks best, so nothing is scored twice
     return out
 
 

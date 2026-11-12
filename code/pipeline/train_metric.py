@@ -1,24 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-train_metric.py - 统一度量学习训练入口 (C1模块)
+train_metric.py - single entry point for metric-learning training (module C1)
 
-支持方法:
+supported methods:
   - ArcFace
   - CosFace
   - CircleLoss
   - ProxyNCA
   - SubCenterArcFace (K=1,3,5)
-  - SCE (Symmetric Cross Entropy, Wang 2019) - 噪声鲁棒
-  - GCE (Generalized Cross Entropy, Zhang 2018) - 噪声鲁棒
+  - SCE (Symmetric Cross Entropy, Wang 2019) - noise-robust
+  - GCE (Generalized Cross Entropy, Zhang 2018) - noise-robust
 
-实验配置:
-  - 冻结DINOv3特征 (加载预提取的 .npy)
-  - 可训练投影头: 768 -> 512 -> embed_dim
+experiment configuration:
+  - frozen DINOv3 features (load the pre-extracted .npy)
+  - trainable projection head: 768 -> 512 -> embed_dim
   - AdamW, CosineAnnealingLR
   - MPerClassSampler (m=4)
   - MultiSimilarityMiner (epsilon=0.1)
-  - BF16混合精度 (Blackwell原生支持)
+  - BF16 mixed precision (native on Blackwell)
 """
 
 import json
@@ -39,16 +39,16 @@ from pathlib import Path
 from pytorch_metric_learning import losses, miners, distances
 from pytorch_metric_learning.samplers import MPerClassSampler
 
-# ==================== 路径配置 ====================
+# ==================== path configuration ====================
 BASE_DIR = Path(r"<DATA_ROOT>\retrieval")
 FEATURES_NPY = BASE_DIR / "features" / "dinov3_features.npy"
 GRADIENT_DIR = BASE_DIR / "data" / "gradients"
 RESULTS_DIR = BASE_DIR / "results"
 
-# ==================== 模型定义 ====================
+# ==================== model definition ====================
 
 class ProjectionHead(nn.Module):
-    """投影头: 768 -> 512 -> embed_dim"""
+    """Projection head: 768 -> 512 -> embed_dim"""
     def __init__(self, input_dim=768, hidden_dim=512, embed_dim=512, dropout=0.1):
         super().__init__()
         self.net = nn.Sequential(
@@ -68,7 +68,7 @@ class SCEClassificationLoss(nn.Module):
     """Symmetric Cross Entropy (Wang et al., 2019, ICCV)
     L = alpha * CE + beta * RCE
     RCE(f) = -sum(1 - softmax(f)_k) for all k
-    自带分类层，输入embeddings输出loss
+    carries its own classification layer and maps embeddings to the loss
     """
     def __init__(self, embed_dim, num_classes, scale=30.0, alpha=0.1, beta=1.0):
         super().__init__()
@@ -79,7 +79,7 @@ class SCEClassificationLoss(nn.Module):
         self.beta = beta
     
     def forward(self, embeddings, labels):
-        # 计算logits (cosine-based)
+        # compute logits (cosine-based)
         emb_norm = F.normalize(embeddings)
         w_norm = F.normalize(self.fc.weight, dim=1)
         logits = self.scale * (emb_norm @ w_norm.t())
@@ -98,7 +98,7 @@ class GCEClassificationLoss(nn.Module):
     """Generalized Cross Entropy (Zhang et al., 2018, NeurIPS)
     L = (1 - softmax(f)_y^q) / q
     q -> 0: CE; q -> 1: MAE
-    自带分类层，输入embeddings输出loss
+    carries its own classification layer and maps embeddings to the loss
     """
     def __init__(self, embed_dim, num_classes, scale=30.0, q=0.7):
         super().__init__()
@@ -118,24 +118,24 @@ class GCEClassificationLoss(nn.Module):
         return loss.mean()
 
 
-# ==================== 损失函数构建 ====================
+# ==================== build the loss ====================
 
 def build_loss_and_miner(method_name, num_classes, embed_dim=512, 
                          subcenter_k=3, device='cuda'):
-    """构建损失函数和miner"""
+    """Build the loss function and the miner"""
     
     distance = distances.CosineSimilarity()
     
-    # 分类损失 (自带分类层, 不需要miner)
+    # classification loss (own classification layer, no miner needed)
     classification_methods = {'SCE', 'GCE'}
-    # Pair-based 度量学习损失 (需要miner)
+    # pair-based metric-learning loss (needs a miner)
     pair_methods = {'ArcFace', 'CosFace', 'CircleLoss', 'ProxyNCA', 'SubCenterArcFace'}
     
-    # 注意: 在pytorch-metric-learning中:
-    # - ArcFaceLoss/CosFaceLoss/SubCenterArcFaceLoss 虽然自带分类层,
-    #   但其forward()仍支持indices_tuple来做采样
-    # - CircleLoss 是纯分类损失, 不接受indices_tuple
-    # - ProxyNCALoss 接受indices_tuple
+    # note: in pytorch-metric-learning,
+    # - ArcFaceLoss / CosFaceLoss / SubCenterArcFaceLoss ship their own classification layer,
+    # but its forward() still accepts indices_tuple for sampling
+    # - CircleLoss is a pure classification loss and does not accept indices_tuple
+    # - ProxyNCALoss does accept indices_tuple
     
     miner = miners.MultiSimilarityMiner(epsilon=0.1)
     
@@ -188,10 +188,10 @@ def build_loss_and_miner(method_name, num_classes, embed_dim=512,
     return loss_fn, miner
 
 
-# ==================== 数据集 ====================
+# ==================== dataset ====================
 
 class FeatureDataset(torch.utils.data.Dataset):
-    """冻结特征数据集"""
+    """Frozen-feature dataset"""
     def __init__(self, features, labels):
         self.features = torch.from_numpy(features).float()
         self.labels = torch.LongTensor(labels)
@@ -203,10 +203,10 @@ class FeatureDataset(torch.utils.data.Dataset):
         return self.features[idx], self.labels[idx]
 
 
-# ==================== 训练循环 ====================
+# ==================== training loop ====================
 
 def train_one_epoch(model, loss_fn, miner, optimizer, dataloader, device):
-    """单epoch训练 - 统一接口，所有loss都接受(embeddings, labels)"""
+    """Single-epoch training - one interface; every loss accepts (embeddings, labels)"""
     model.train()
     total_loss = 0.0
     num_batches = 0
@@ -217,17 +217,17 @@ def train_one_epoch(model, loss_fn, miner, optimizer, dataloader, device):
         
         optimizer.zero_grad()
         
-        # 前向传播
+        # forward pass
         embeddings = model(features)
         
-        # 计算损失 (所有方法的loss_fn统一接受 embeddings, labels)
+        # compute the loss (every method's loss_fn takes embeddings and labels)
         if miner is not None:
             indices_tuple = miner(embeddings, labels)
             loss = loss_fn(embeddings, labels, indices_tuple)
         else:
             loss = loss_fn(embeddings, labels)
         
-        # 反向传播
+        # backward pass
         loss.backward()
         torch.nn.utils.clip_grad_norm_(
             list(model.parameters()) + list(loss_fn.parameters()), 
@@ -241,7 +241,7 @@ def train_one_epoch(model, loss_fn, miner, optimizer, dataloader, device):
     return total_loss / max(num_batches, 1)
 
 
-# ==================== 主函数 ====================
+# ==================== main ====================
 
 def main():
     parser = argparse.ArgumentParser(description='度量学习训练')
@@ -269,7 +269,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 设置随机种子
+    # set the random seed
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     if torch.cuda.is_available():
@@ -280,14 +280,14 @@ def main():
     print(f"种子={args.seed}, 轮数={args.epochs}, bs={args.batch_size}, lr={args.lr}")
     print("=" * 70)
     
-    # ==================== 加载数据 ====================
+    # ==================== load data ====================
     print("\n[1/4] 加载数据...")
     
-    # 加载全部特征
+    # load all features
     features_all = np.load(str(FEATURES_NPY))
     print(f"  特征shape: {features_all.shape}")
     
-    # 加载训练集索引
+    # load the training-set indices
     gradient_file = GRADIENT_DIR / f"{args.dataset}_indices.json"
     if not gradient_file.exists():
         print(f"  ❌ 训练集文件不存在: {gradient_file}")
@@ -297,25 +297,25 @@ def main():
     with open(gradient_file, 'r', encoding='utf-8') as f:
         gradient_data = json.load(f)
     
-    # 兼容两种格式：纯列表 或 dict with 'indices' key
+    # accepts either a plain list or a dict with an 'indices' key
     if isinstance(gradient_data, list):
         train_indices = gradient_data
     else:
         train_indices = gradient_data['indices']
     print(f"  训练集 {args.dataset}: {len(train_indices)} 张")
     
-    # 提取训练特征和标签
+    # extract training features and labels
     labels_csv = pd.read_csv(BASE_DIR / "annotations" / "all_labels.csv", encoding='utf-8')
     
-    # 建立 global_idx -> label 的快速查找表
+    # build a fast global_idx -> label lookup
     label_lookup = dict(zip(labels_csv['global_idx'], labels_csv['label']))
     
-    # 类别编码 (固定映射)
+    # class encoding (fixed map)
     categories = sorted(labels_csv['label'].unique())
     cat_to_idx = {cat: idx for idx, cat in enumerate(categories)}
     print(f"  类别数: {len(categories)}")
     
-    # 提取训练数据
+    # extract the training data
     train_features = features_all[train_indices]
     train_labels = np.array([cat_to_idx[label_lookup[idx]] 
                              for idx in train_indices])
@@ -323,7 +323,7 @@ def main():
     print(f"  训练特征: {train_features.shape}")
     print(f"  标签分布: {dict(zip(*np.unique(train_labels, return_counts=True)))}")
     
-    # ==================== 构建模型 ====================
+    # ==================== build model ====================
     print("\n[2/4] 构建模型...")
     
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
@@ -333,52 +333,52 @@ def main():
         input_dim=768, hidden_dim=512, embed_dim=args.embed_dim
     ).to(device)
     
-    # 参数量统计
+    # parameter count
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"  总参数: {total_params:,}")
     print(f"  可训练: {trainable_params:,}")
     
-    # ==================== 构建损失和采样器 ====================
+    # ==================== build loss and sampler ====================
     print("\n[3/4] 构建损失函数...")
     
     is_classification = args.method in ['CircleLoss', 'SCE', 'GCE']
     
-    # 构建损失函数和miner
+    # build the loss and the miner
     loss_fn, miner = build_loss_and_miner(
         args.method, args.num_classes, args.embed_dim,
         subcenter_k=args.subcenter_k, device=device
     )
     loss_fn = loss_fn.to(device)
     
-    # 统一使用标准DataLoader（miner负责pair采样，无需MPerClassSampler）
+    # use a standard DataLoader throughout (the miner samples the pairs, so no MPerClassSampler is needed)
     dataloader = torch.utils.data.DataLoader(
         FeatureDataset(train_features, train_labels),
         batch_size=args.batch_size,
         shuffle=True,
-        num_workers=0,  # 冻结特征无需多进程
+        num_workers=0,  # frozen features need no multiprocessing
         pin_memory=True,
-        drop_last=True  # 避免最后一个batch太小影响BN统计
+        drop_last=True  # keep the last batch from being too small, which would disturb the batch-norm statistics
     )
     
-    # 优化器 (所有损失函数都可能有可学习参数: ArcFace/CosFace的权重矩阵等)
+    # optimiser (every loss may carry learnable parameters: the ArcFace/CosFace weight matrix and so on)
     params_to_optimize = list(model.parameters())
     if hasattr(loss_fn, 'parameters') and len(list(loss_fn.parameters())) > 0:
         params_to_optimize += list(loss_fn.parameters())
     optimizer = AdamW(params_to_optimize, lr=args.lr, weight_decay=args.weight_decay)
     
-    # 学习率调度
+    # learning-rate schedule
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs - args.warmup_epochs)
     
-    # BF16混合精度 (Blackwell原生支持)
+    # BF16 mixed precision (native on Blackwell)
     use_bf16 = device.type == 'cuda'
     if use_bf16:
         print(f"  BF16混合精度: 启用")
     
-    # ==================== 训练 ====================
+    # ==================== training ====================
     print(f"\n[4/4] 开始训练 ({args.epochs} epochs)...")
     
-    # 创建输出目录
+    # create the output directory
     exp_name = f"{args.method}_{args.dataset}_seed{args.seed}"
     if args.method == 'SubCenterArcFace':
         exp_name = f"SubCenterArcFace_K{args.subcenter_k}_{args.dataset}_seed{args.seed}"
@@ -398,12 +398,12 @@ def main():
             for pg in optimizer.param_groups:
                 pg['lr'] = warmup_lr
         
-        # 训练
+        # training
         avg_loss = train_one_epoch(
             model, loss_fn, miner, optimizer, dataloader, device
         )
         
-        # 学习率更新 (warmup后)
+        # learning-rate update (after warm-up)
         if epoch > args.warmup_epochs:
             scheduler.step()
         
@@ -418,12 +418,12 @@ def main():
         }
         training_log.append(log_entry)
         
-        # 打印进度
+        # print progress
         if epoch % 5 == 0 or epoch == 1:
             print(f"  Epoch {epoch:3d}/{args.epochs}: loss={avg_loss:.4f}, "
                   f"lr={current_lr:.2e}, time={elapsed:.1f}s")
         
-        # 保存best
+        # save the best checkpoint
         if avg_loss < best_loss:
             best_loss = avg_loss
             torch.save({
@@ -436,7 +436,7 @@ def main():
                 'seed': args.seed,
             }, exp_dir / "best_checkpoint.pt")
         
-        # 定期保存
+        # save periodically
         if epoch % args.save_every == 0:
             torch.save({
                 'epoch': epoch,
@@ -445,10 +445,10 @@ def main():
                 'loss': avg_loss,
             }, exp_dir / f"checkpoint_epoch{epoch}.pt")
     
-    # ==================== 保存结果 ====================
+    # ==================== save results ====================
     print(f"\n训练完成! best_loss={best_loss:.4f}")
     
-    # 保存最终模型
+    # save the final model
     torch.save({
         'epoch': args.epochs,
         'model_state_dict': model.state_dict(),
@@ -458,11 +458,11 @@ def main():
         'config': vars(args),
     }, exp_dir / "final_checkpoint.pt")
     
-    # 保存训练日志
+    # save the training log
     with open(exp_dir / "training_log.json", 'w', encoding='utf-8') as f:
         json.dump(training_log, f, indent=2, ensure_ascii=False)
     
-    # 保存实验配置
+    # save the experiment configuration
     with open(exp_dir / "config.json", 'w', encoding='utf-8') as f:
         json.dump(vars(args), f, indent=2, ensure_ascii=False)
     

@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
 r"""
-E1-2 污染剂量—反应曲线（不重训，复用原稿 129 个 checkpoint）。
+E1-2 contamination dose-response curve (no retraining; the 129 manuscript checkpoints are reused)
 
-要回答的问题
+the question to answer
 -------------
-原稿的「扩展训练集有益」只在一个 96% 靠伪标签填出来的 gallery 上成立。
-那么：**需要多少同源污染，这个结论才会出现？**
+the manuscript's "the enlarged training set helps" holds only on a gallery that is 96% filled with pseudo-labels
+So: **how much same-source contamination does this conclusion need?**
 
-设计（同图、同大小、只改标签来源）
+design (same images, same size, only the label source changes)
 ----------------------------------
-query 固定 = 原稿 337 张 hf_dunhuang 人工标签图。
-gallery 三臂，每臂都用**同一批**图像、同样的总规模，只有伪标签图的标签处理不同：
+query is fixed: the 337 human-labelled hf_dunhuang images of the manuscript
+three gallery arms, each with **the same** images and the same total size; only the labelling of the pseudo-labelled images differs:
 
-  G_null   干净 339 + n_p 张伪标签图，标签设为 -1（永不命中）
-           → 这正是 code/03_dataset_split.py:250-254 原本要做的事
-             （`r["label"]="distractor"`），后来被 02_label_propagation.py 覆盖掉了。
-  G_knn    干净 339 + 同一批 n_p 张伪标签图，标签取传播结果
-           → 这正是原稿实际做的事。
-  G_clean  只保留干净 339（n_p=0 的参照点）。
+  G_null   the clean 339 plus the same n_p pseudo-labelled images, labelled -1 so they never count as hits
+           -> this is exactly what code/03_dataset_split.py:250-254 was meant to do
+             (r["label"] = "distractor"), which 02_label_propagation.py later overwrote
+  G_knn    the clean 339 plus the same n_p pseudo-labelled images, labelled by the propagation result
+           -> this is exactly what the manuscript actually did
+  G_clean  the clean 339 only (the n_p = 0 reference point)
 
-被判分的图像、特征、query 全同，唯一差别是那 n_p 张图**能不能作为正确答案**。
-于是 (G_knn − G_null) 就是「标签来源」的净效应，
-而 n_p 的扫描给出这个效应随同源污染量变化的曲线。
+the scored images, the features and the queries are all identical; the only difference is whether those n_p images **can count as correct answers**
+so (G_knn - G_null) is the net effect of the label source,
+while the n_p sweep gives the curve of that effect against the amount of same-source contamination
 
-产物：e1_2_dose.csv（逐 run × 臂 × n_p）。
+output: e1_2_dose.csv (one row per run x arm x n_p)
 """
 
 import re
@@ -45,11 +45,11 @@ N_P_GRID = [0, 500, 1000, 2000, 4000, 8000, 17000]
 RNG_SEED = 7
 METHODS = {"ArcFace", "GCE", "SCE", "SubCenterArcFace_K3"}
 
-# 池子选择：
-#   all      —— 原稿实际使用的伪标签池（gallery∪cross 中所有非 seed 图），
-#               其中一部分同时出现在训练集里，因此"记住训练图"会被计分。
-#   disjoint —— 只用**不在原 train.csv 里**的伪标签图，把"标签来源"效应
-#               与"记不记得住训练图"彻底分开。
+# choice of pool:
+# all      -- the pseudo-label pool the manuscript actually used (every non-seed image in gallery and cross),
+# part of them also sit in the training set, so "remembering the training images" gets scored
+# disjoint -- use only pseudo-labelled images **absent from the original train.csv**, so that the label-source effect
+# keeps this cleanly apart from "does the model remember its training images"
 POOL = sys.argv[1] if len(sys.argv) > 1 else "all"
 N_P_GRID = N_P_GRID if POOL == "all" else [0, 250, 500, 1000, 2000, 4000, 8000]
 TAG = f"e1_2_dose_{POOL}.csv"
@@ -103,7 +103,7 @@ def main():
     gl_clean = np.array([cidx[cat[i]] for i in clean_g])
     qf = feat[np.array(q_idx)]
 
-    # 每个 n_p 用同一批伪标签图（嵌套取前 n_p，保证曲线可比）
+    # every n_p uses the same pseudo-labelled images (nested prefixes, so the curve stays comparable)
     rng = np.random.default_rng(RNG_SEED)
     perm = rng.permutation(len(pseudo_pool))
     pool_ord = [pseudo_pool[i] for i in perm[:max(N_P_GRID)]]
@@ -147,7 +147,7 @@ def main():
             ge = np.vstack([ge_clean, ge_pool[:n_p]]) if n_p else ge_clean
             for arm, gl in (("G_knn", a["G_knn"]), ("G_null", a["G_null"])):
                 if n_p == 0 and arm == "G_null":
-                    continue  # n_p=0 时两臂同值，只记一次
+                    continue  # at n_p = 0 the two arms coincide, so it is recorded once
                 m_ap, m_r1 = metric_map(qe, ql, ge, gl)
                 rows.append(dict(run=r["dir"].name, method=r["method"],
                                  dataset=r["dataset"], seed=r["seed"], n_p=n_p,

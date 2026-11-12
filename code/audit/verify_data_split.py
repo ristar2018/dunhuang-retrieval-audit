@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-数据划分互斥性验证 (F2 - 严谨性审查修订)
-验证 Train/Query/Gallery/Cross 四个集合的互斥性:
-  Check 1: 索引级互斥 (global_idx无交集)
-  Check 2: 文件路径级不重复 (path无交集)
-  Check 3: 特征空间泄漏检测 (跨集合cosine sim < 0.99)
+Split disjointness verification (F2, rigour review revision)
+Verify that the four splits Train/Query/Gallery/Cross are disjoint:
+  Check 1: disjointness at the index level (no global_idx in common)
+  Check 2: no repetition at the file-path level (no path in common)
+  Check 3: leakage in feature space (cross-split cosine sim < 0.99)
 
-数据源: D:\\XiaBao\\AIArtDetect\\retrieval\\splits\\ 下的4个CSV文件
+Source: the four CSV files in the splits directory of the data root
 """
 
 import os, sys, csv, time
 import numpy as np
 
-# ── 路径配置 ──
+# -- paths --
 SPLITS_DIR = r"<DATA_ROOT>\retrieval\splits"
 FEATURES_PATH = r"<DATA_ROOT>\retrieval\features\dinov3_features.npy"
 REPORT_PATH = r"<DATA_ROOT>\retrieval\splits\split_verification_report.txt"
@@ -28,7 +28,7 @@ SPLIT_FILES = {
 
 
 def load_csv(filename):
-    """读取CSV, 返回 (global_idx_list, path_list)"""
+    """Read a CSV and return (global_idx_list, path_list)"""
     fpath = os.path.join(SPLITS_DIR, filename)
     if not os.path.exists(fpath):
         print(f"  [X] 文件不存在: {fpath}")
@@ -43,7 +43,7 @@ def load_csv(filename):
 
 
 def check_1_index_exclusivity(sets):
-    """Check 1: 索引级互斥"""
+    """Check 1: index-level exclusivity"""
     print("\n" + "=" * 70)
     print("[Check 1/3] 索引级互斥 (global_idx)")
     print("=" * 70)
@@ -66,7 +66,7 @@ def check_1_index_exclusivity(sets):
 
 
 def check_2_path_exclusivity(sets):
-    """Check 2: 文件路径级不重复"""
+    """Check 2: no duplicated file paths"""
     print("\n" + "=" * 70)
     print("[Check 2/3] 文件路径级不重复")
     print("=" * 70)
@@ -88,12 +88,12 @@ def check_2_path_exclusivity(sets):
 
 
 def check_3_feature_leakage(sets, features):
-    """Check 3: 特征空间泄漏检测 (批量cosine)"""
+    """Check 3: leakage in feature space (batched cosine)"""
     print("\n" + "=" * 70)
     print("[Check 3/3] 特征空间泄漏检测 (cosine sim >= {:.2f})".format(COS_THRESHOLD))
     print("=" * 70)
 
-    # 归一化特征
+    # normalised features
     norms = np.linalg.norm(features, axis=1, keepdims=True)
     norms = np.where(norms == 0, 1, norms)
     features_norm = features / norms
@@ -114,7 +114,7 @@ def check_3_feature_leakage(sets, features):
             max_sim = -1.0
             leak_pairs = []
 
-            # 分批计算避免OOM
+            # compute in batches to avoid OOM
             for start in range(0, len(f1), batch_size):
                 end = min(start + batch_size, len(f1))
                 batch = f1[start:end]  # (B, D)
@@ -122,7 +122,7 @@ def check_3_feature_leakage(sets, features):
                 batch_max = sims.max()
                 if batch_max > max_sim:
                     max_sim = batch_max
-                # 记录泄漏对
+                # record the leaking pairs
                 leak_mask = sims >= COS_THRESHOLD
                 if leak_mask.any():
                     rows, cols = np.where(leak_mask)
@@ -150,7 +150,7 @@ def main():
     print("  数据划分互斥性验证 (F2)")
     print("=" * 70)
 
-    # [1] 加载数据
+    # [1] load data
     print("\n[1/4] 加载数据...")
     sets = {}
     total = 0
@@ -169,19 +169,19 @@ def main():
         total += len(idxs)
     print(f"  总计: {total} 条")
 
-    # 总数校验
+    # total-count check
     if total != 32415:
         print(f"\n  [WARN] 总数 {total} != 预期 32415")
     else:
         print(f"  [OK] 总数 32415 校验通过")
 
-    # [2] Check 1: 索引互斥
+    # [2] Check 1: index disjointness
     pass1 = check_1_index_exclusivity(sets)
 
-    # [3] Check 2: 路径互斥
+    # [3] Check 2: path disjointness
     pass2 = check_2_path_exclusivity(sets)
 
-    # [4] Check 3: 特征空间泄漏
+    # [4] Check 3: leakage in feature space
     print("\n[4/4] 加载特征矩阵...")
     if not os.path.exists(FEATURES_PATH):
         print(f"  [X] 特征文件不存在: {FEATURES_PATH}")
@@ -193,9 +193,9 @@ def main():
         if features.shape[0] != 32415:
             print(f"  [WARN] 特征数 {features.shape[0]} != 32415")
         pass3 = check_3_feature_leakage(sets, features)
-        del features  # 释放内存
+        del features  # free memory
 
-    # ── 汇总 ──
+    # -- summary --
     elapsed = time.time() - t0
     print("\n" + "=" * 70)
     print("  验证结果汇总")
@@ -211,7 +211,7 @@ def main():
     print(f"  耗时: {elapsed:.1f}s")
     print("=" * 70)
 
-    # ── 写报告 ──
+    # -- write the report --
     with open(REPORT_PATH, "w", encoding="utf-8") as f:
         f.write("数据划分互斥性验证报告 (F2)\n")
         f.write(f"时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")

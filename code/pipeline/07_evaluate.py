@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Step 7: 检索评估
-提取query/gallery/cross-source embeddings，用faiss计算Recall@K和mAP。
-支持两种模式：
-  1. 同域评估: query -> gallery (同分布)
-  2. 跨源评估: cross-source query -> gallery (跨数据源泛化)
+Step 7: retrieval evaluation
+Extract query/gallery/cross-source embeddings and compute Recall@K and mAP with faiss
+two modes are supported:
+  1. in-domain evaluation: query -> gallery (same distribution)
+  2. cross-source evaluation: cross-source query -> gallery (generalisation across sources)
 """
 import os, sys, json, time
 import numpy as np
@@ -20,7 +20,7 @@ from config import (
 
 @torch.no_grad()
 def extract_embeddings(model, dataloader, device):
-    """提取embedding和标签"""
+    """Extract embeddings and labels"""
     model.eval()
     all_emb, all_labels, all_sources, all_paths = [], [], [], []
     for batch in tqdm(dataloader, desc="  Extracting", leave=False):
@@ -39,7 +39,7 @@ def extract_embeddings(model, dataloader, device):
 
 
 def build_gallery_index(gallery_emb):
-    """构建faiss内积索引（embedding已归一化，内积=余弦相似度）"""
+    """Build the faiss inner-product index (embeddings are normalised, so inner product = cosine similarity)"""
     index = faiss.IndexFlatIP(gallery_emb.shape[1])
     index.add(gallery_emb)
     return index
@@ -47,7 +47,7 @@ def build_gallery_index(gallery_emb):
 
 def compute_metrics(query_emb, query_labels, gallery_emb, gallery_labels,
                     gallery_is_distractor, k_list=TOP_K):
-    """计算 Recall@K 和 mAP"""
+    """Compute Recall@K and mAP"""
     index = build_gallery_index(gallery_emb)
     max_k = max(k_list)
     # search more than max_k to skip distractors
@@ -92,7 +92,7 @@ def compute_metrics(query_emb, query_labels, gallery_emb, gallery_labels,
 
 
 def evaluate(model, dataloaders, device, epoch=None, save_dir=None):
-    """完整评估流程"""
+    """Full evaluation pipeline"""
     model.eval()
     metrics = {}
 
@@ -167,7 +167,8 @@ def evaluate(model, dataloaders, device, epoch=None, save_dir=None):
 if __name__ == "__main__":
     # Standalone test with frozen DINOv3 (zero-shot baseline)
     import torch.nn.functional as Fn
-    from config import EXP_DIR
+    from transformers import AutoModel
+    from config import EXP_DIR, DINOV3_PATH
     from importlib import import_module
     mod = import_module("04_dataset")
     build_dataloaders = mod.build_dataloaders

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Build paper_sivp\正文_v1_英文.md into a sn-jnl two-column LaTeX manuscript
+"""Build the paper_sivp manuscript into a sn-jnl two-column LaTeX manuscript
 and compile it, so that the page count is measured rather than estimated.
 
 Pipeline: tokenise figures and pipe tables -> pandoc (prose only) -> swap the

@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Step 3b: 全局去重与重新划分
-基于 DINOv2 特征余弦相似度检测跨集合重复图像，使用 Union-Find 聚类后
-按优先级分配集合，确保 train/query/gallery 之间无 sim > 0.99 的重复。
+Step 3b: global deduplication and re-splitting
+Detect images repeated across splits by DINOv2 feature cosine similarity, cluster them with union-find and then
+Assign splits by priority, making sure no pair of train/query/gallery shares a duplicate with sim > 0.99
 
-优先级: train > gallery_labeled > query > gallery_distractor
-- 重复组中有 train 成员: 全部非distractor成员归入 train
-- 无 train 但有 gallery_labeled: 归入 gallery_labeled
-- 只有 query: 保留在 query
-- distractor 始终保留在 gallery (作为干扰项不影响评估)
-- muraldh_sr 组保持完整 (5变体同进退)
+priority: train > gallery_labeled > query > gallery_distractor
+- a duplicate group with a train member: every non-distractor member goes to train
+- no train member but a gallery_labeled member: go to gallery_labeled
+- query members only: stay in query
+- distractors always stay in the gallery (as distractors they do not affect the evaluation)
+- muraldh_sr groups stay whole (the five variants move together)
 """
 import os, sys, json, csv, re
 import numpy as np
@@ -25,7 +25,7 @@ from config import (
     CROSS_SOURCE_HOLDOUT
 )
 
-SIM_THRESHOLD = 0.99  # 严格去重阈值
+SIM_THRESHOLD = 0.99  # strict deduplication threshold
 
 
 class UnionFind:
@@ -62,7 +62,7 @@ def load_all_labels():
 
 
 def extract_sr_group_key(path):
-    # SR 组数据实际路径包含 "Mural_SR"，用小写匹配以兼容 "muraldh_sr" 和 "Mural_SR"
+    # the SR images live under a path spelled "Mural_SR"; matching in lower case accepts both "muraldh_sr" and "Mural_SR"
     p_lower = path.lower().replace("\\", "/")
     if "mural_sr" not in p_lower and "muraldh_sr" not in p_lower:
         return None
@@ -74,14 +74,14 @@ def extract_sr_group_key(path):
 
 
 def find_duplicates(feats, threshold=SIM_THRESHOLD):
-    """用 faiss 批量搜索自最近邻，找出所有 sim > threshold 的重复对"""
+    """Use faiss to search each image's nearest neighbours in bulk and collect every duplicate pair with sim > threshold"""
     n = feats.shape[0]
     print(f"[INFO] 在 {n} 张图像中搜索重复对 (sim > {threshold})...")
 
     index = faiss.IndexFlatIP(feats.shape[1])
     index.add(feats.astype(np.float32))
 
-    # 搜索 k=10 近邻 (一个重复簇可能有多张图)
+    # search k = 10 neighbours (one duplicate cluster may hold several images)
     k = min(10, n)
     dup_pairs = []
     batch_size = 4096
@@ -96,7 +96,7 @@ def find_duplicates(feats, threshold=SIM_THRESHOLD):
             for rank in range(k):
                 nj = int(I[local_i, rank])
                 sim = float(D[local_i, rank])
-                if nj < 0 or nj <= gi:  # 避免自匹配和重复计数
+                if nj < 0 or nj <= gi:  # avoid self-matches and double counting
                     continue
                 if sim >= threshold:
                     dup_pairs.append((gi, nj, sim))
@@ -109,7 +109,7 @@ def find_duplicates(feats, threshold=SIM_THRESHOLD):
 
 
 def analyze_duplicate_sources(dup_pairs, rows):
-    """分析重复对的来源组合"""
+    """Analyse the source combinations of the duplicate pairs"""
     print("\n[INFO] 重复对来源分析:")
     source_pairs = Counter()
     sim_buckets = Counter()
@@ -137,8 +137,8 @@ def analyze_duplicate_sources(dup_pairs, rows):
 
 def deduplicate_and_assign(rows, feats, dup_pairs):
     """
-    Union-Find 聚类重复组，然后按优先级分配。
-    返回: 每个 global_idx 的最终 split 分配
+    Cluster the duplicate groups with union-find and then assign them by priority.
+    returns: the final split assignment of every global_idx
     """
     n = len(rows)
     uf = UnionFind(n)
@@ -146,24 +146,24 @@ def deduplicate_and_assign(rows, feats, dup_pairs):
     for gi, nj, sim in dup_pairs:
         uf.union(gi, nj)
 
-    # 收集聚类
+    # collect the clusters
     clusters = defaultdict(list)
     for i in range(n):
         root = uf.find(i)
         clusters[root].append(i)
 
-    # 过滤单元素簇
+    # drop single-element clusters
     dup_clusters = {k: v for k, v in clusters.items() if len(v) > 1}
     print(f"\n[INFO] 重复簇数: {len(dup_clusters)} "
           f"(涉及 {sum(len(v) for v in dup_clusters.values())} 张图像)")
 
-    # 簇大小分布
+    # cluster-size distribution
     cluster_sizes = Counter(len(v) for v in dup_clusters.values())
     print(f"  簇大小分布: {dict(sorted(cluster_sizes.items()))}")
 
-    # 确定每个簇的目标 split
-    # 优先级: train > cross_source > gallery_labeled > query > gallery_distractor
-    # cross_source 不应该被去重影响 (它们是独立留出的)
+    # fix the target split of each cluster
+    # priority: train > cross_source > gallery_labeled > query > gallery_distractor
+    # cross_source must not be touched by deduplication (it is held out independently)
     PRIORITY = {
         "train": 5,
         "cross_source": 4,
@@ -173,8 +173,8 @@ def deduplicate_and_assign(rows, feats, dup_pairs):
         "unassigned": 0,
     }
 
-    # 先初始化每个图像的当前 split (来自 Step 3 的划分)
-    # 重新加载 split CSVs 获取当前分配
+    # first initialise each image's current split (from the Step 3 assignment)
+    # reload the split CSVs to get the current assignment
     split_map = {}  # global_idx -> split_name
 
     train_rows = load_csv_simple(TRAIN_CSV)
@@ -195,34 +195,34 @@ def deduplicate_and_assign(rows, feats, dup_pairs):
     for r in cross_rows:
         split_map[int(r["global_idx"])] = "cross_source"
 
-    # 对每个重复簇，决定目标 split
+    # decide the target split for each duplicate cluster
     reassign_count = 0
     for root, members in dup_clusters.items():
-        # 统计簇中各 split 的成员
+        # count the members of each split inside a cluster
         splits_in_cluster = Counter()
         for idx in members:
             s = split_map.get(idx, "unassigned")
             splits_in_cluster[s] += 1
 
-        # 选最高优先级的 split
+        # take the split with the highest priority
         best_split = max(splits_in_cluster.keys(),
                          key=lambda s: PRIORITY.get(s, 0))
 
-        # 如果簇中包含 cross_source 成员，cross_source 保留，
-        # 其他成员重新分配到 train (不能让cross数据泄漏到其他集合)
+        # if a cluster contains cross_source members, cross_source keeps them,
+        # redistribute the remaining members into train (cross data must not leak into the other splits)
         if "cross_source" in splits_in_cluster:
             for idx in members:
                 if split_map.get(idx) != "cross_source":
                     old = split_map.get(idx, "unassigned")
-                    split_map[idx] = "train"  # 移入train
+                    split_map[idx] = "train"  # move into train
                     if old != "train":
                         reassign_count += 1
         elif best_split == "train":
-            # 所有非distractor成员移入train
+            # every non-distractor member moves into train
             for idx in members:
                 old = split_map.get(idx, "unassigned")
                 if old == "gallery_distractor":
-                    pass  # distractor保持在gallery
+                    pass  # distractors stay in the gallery
                 elif old != "train":
                     split_map[idx] = "train"
                     reassign_count += 1
@@ -232,11 +232,11 @@ def deduplicate_and_assign(rows, feats, dup_pairs):
                 if old == "gallery_distractor":
                     pass
                 elif old == "query":
-                    # query中的重复图移到gallery_labeled
+                    # duplicates inside query move to gallery_labeled
                     split_map[idx] = "gallery_labeled"
                     reassign_count += 1
         elif best_split == "query":
-            # 只有query成员，保留query；gallery_distractor不动
+            # query members only, keep them in query; gallery_distractor is left alone
             pass
 
     print(f"[INFO] 重新分配: {reassign_count} 张图像")
@@ -254,10 +254,10 @@ def load_csv_simple(path):
 
 
 def rebuild_splits(rows, split_map, feats):
-    """根据去重后的 split_map 重新生成数据集划分"""
+    """Regenerate the dataset splits from the deduplicated split_map"""
     print("\n[INFO] 重建数据集划分...")
 
-    # 按新分配分组
+    # group by the new assignment
     new_train = []
     new_query = []
     new_gallery_labeled = []
@@ -279,11 +279,11 @@ def rebuild_splits(rows, split_map, feats):
         elif s == "cross_source":
             new_cross.append(r)
         else:
-            # 未分配的: reliable -> 需要重新分层划分
+            # unassigned: reliable -> needs a fresh stratified split
             # uncertain -> distractor
             if r["label_type"] == "uncertain":
                 new_gallery_distractor.append(r)
-            # 可靠标签但未分配的，后续处理
+            # reliable but unassigned images are handled later
 
     print(f"  去重后初步分配:")
     print(f"    Train: {len(new_train)}")
@@ -292,7 +292,7 @@ def rebuild_splits(rows, split_map, feats):
     print(f"    Gallery(distractor): {len(new_gallery_distractor)}")
     print(f"    Cross-source: {len(new_cross)}")
 
-    # 对未分配的可靠标签图像，按比例补入各集合
+    # reliable but unassigned images are topped up into the splits proportionally
     unassigned_reliable = [r for r in rows
                            if split_map.get(r["global_idx"], "unassigned") == "unassigned"
                            and r["label_type"] != "uncertain"
@@ -301,10 +301,10 @@ def rebuild_splits(rows, split_map, feats):
         print(f"\n[INFO] 未分配可靠标签图像: {len(unassigned_reliable)}，补入划分...")
         rng = np.random.RandomState(RANDOM_SEED)
 
-        # 按 (label, source) 分层
+        # stratify by (label, source)
         strata = defaultdict(list)
         for r in unassigned_reliable:
-            # SR组整组处理
+            # SR groups are handled as whole units
             gk = extract_sr_group_key(r["path"])
             if gk is not None:
                 strata[("sr_group", gk)].append(r)
@@ -334,7 +334,7 @@ def rebuild_splits(rows, split_map, feats):
                 else:
                     new_gallery_labeled.append(r)
 
-    # 标记字段
+    # the marking fields
     for r in new_train:
         r["split"] = "train"
         r["is_distractor"] = False
@@ -360,7 +360,7 @@ def rebuild_splits(rows, split_map, feats):
 
 
 def verify_no_duplicates(train, query, gallery, feats, path_to_idx):
-    """去重后验证"""
+    """Verify after deduplication"""
     print("\n[VERIFY] 去重后跨集合重复验证...")
 
     def get_indices(rows):
@@ -396,7 +396,7 @@ def verify_no_duplicates(train, query, gallery, feats, path_to_idx):
               f"dupes(>={SIM_THRESHOLD}): {n_dupes}")
         issues += n_dupes
 
-    # Query vs Gallery(labeled) - 检查精确匹配
+    # Query vs Gallery(labeled) - check for exact matches
     if len(query_idx) > 0 and len(gallery_idx) > 0:
         index = faiss.IndexFlatIP(feats.shape[1])
         index.add(feats[gallery_idx].astype(np.float32))
@@ -441,7 +441,7 @@ def main():
 
     print(f"[INFO] {len(rows)} images, features {feats.shape}")
 
-    # 1. 搜索重复对
+    # 1. search for duplicate pairs
     dup_pairs = find_duplicates(feats, SIM_THRESHOLD)
     analyze_duplicate_sources(dup_pairs, rows)
 
@@ -449,23 +449,23 @@ def main():
         print("[INFO] 无重复，无需去重")
         return
 
-    # 2. Union-Find 聚类并分配
+    # 2. Union-Find clustering and assignment
     split_map, dup_clusters = deduplicate_and_assign(rows, feats, dup_pairs)
 
-    # 3. 重建划分
+    # 3. rebuild the splits
     train, query, gallery, cross = rebuild_splits(rows, split_map, feats)
 
-    # 4. 验证
+    # 4. verify
     verify_no_duplicates(train, query, gallery, feats, path_to_idx)
 
-    # 5. 保存
+    # 5. save
     os.makedirs(SPLIT_DIR, exist_ok=True)
     write_csv(TRAIN_CSV, train)
     write_csv(QUERY_CSV, query)
     write_csv(GALLERY_CSV, gallery)
     write_csv(CROSS_SRC_CSV, cross)
 
-    # 6. 统计
+    # 6. statistics
     print("\n" + "=" * 60)
     print("去重后最终划分")
     print("=" * 60)
@@ -489,7 +489,7 @@ def main():
         nd = sum(1 for r in gallery if r["source"]==src and r["is_distractor"])
         print(f"  {src:20s}: {cnt:5d} (labeled: {nl}, dist: {nd})")
 
-    # SR组完整性
+    # SR group integrity
     sr_splits = defaultdict(set)
     for r in train + query + gallery:
         gk = extract_sr_group_key(r["path"])
@@ -499,7 +499,7 @@ def main():
     print(f"\n--- SR组完整性 ---")
     print(f"  总组数: {len(sr_splits)}, 跨集合: {sr_leak}")
 
-    # 类别分布
+    # class distribution
     print(f"\n--- 类别分布 (train/query/gallery/cross) ---")
     for label in CATEGORY_NAMES:
         n_t = sum(1 for r in train if r["label"] == label)

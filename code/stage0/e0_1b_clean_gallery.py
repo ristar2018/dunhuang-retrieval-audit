@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""E0-1b：扩大干净评估集（F_seed_all）+ 原始 DINOv3 零样本基线。
+"""E0-1b: enlarge the clean evaluation set (F_seed_all) and add the raw DINOv3 zero-shot baseline.
 
-动机：B_seed_only 只有 339 张 gallery，统计力弱。把「全部专家标签但非 query」的 seed
-图像（1941 张，含训练用 seed）并入 gallery，可在不引入任何伪标签的前提下把干净
-gallery 扩大 5.7 倍。另算不做任何训练的原始 DINOv3 余弦检索，判断训练是否真的
-提升了专家标签上的检索质量。
+why: B_seed_only holds only 339 gallery images, which is weak. Moving the seed images that are expert-labelled but not query
+images (1,941, including the training seeds) into the gallery, which enlarges the clean set without admitting a single pseudo-label
+enlarges the gallery 5.7-fold. Raw DINOv3 cosine retrieval, with no training at all, is also computed, to judge whether training really
+improves retrieval quality on the expert labels
 """
 import re
 from pathlib import Path

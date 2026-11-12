@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Build manuscript figures 1-5 at journal column widths.
 
-Sources (all under 08_阶段0复核):
+Sources (all under the stage-0 review directory):
   e1_2_dose.csv                  dose-response, two arms
   e1_2b_error_sensitivity.csv    error-rate scan
   e1_eval.csv                    five-fold protocol (450 runs x best/final)

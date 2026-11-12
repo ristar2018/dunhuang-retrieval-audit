@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Step 4: Dataset & DataLoader
-敦煌壁画检索数据集，支持训练增强和评估模式。
+Dunhuang mural retrieval dataset, with training-augmentation and evaluation modes
 """
 import os, csv
 import numpy as np
@@ -21,7 +21,7 @@ from transformers import AutoImageProcessor
 
 
 class DunhuangDataset(Dataset):
-    """敦煌壁画检索数据集"""
+    """Dunhuang mural retrieval dataset"""
 
     def __init__(self, csv_path, transform=None, is_train=False,
                  include_distractors=False):
@@ -58,11 +58,11 @@ class DunhuangDataset(Dataset):
 
 def get_transforms(phase="train"):
     """
-    使用 DINOv3 的 AutoImageProcessor 预处理参数，
-    训练时叠加轻量增强。
+    using the AutoImageProcessor preprocessing parameters of DINOv3,
+    light augmentation is applied during training.
     """
     processor = AutoImageProcessor.from_pretrained(DINOV3_PATH)
-    # DINOv3预处理：resize 256 -> center crop 224 -> normalize
+    # DINOv3 preprocessing: resize 256 -> center crop 224 -> normalize
     mean = tuple(processor.image_mean)  # (0.485, 0.456, 0.406)
     std = tuple(processor.image_std)     # (0.229, 0.224, 0.225)
     size = processor.size.get("shortest_edge", 256)
@@ -91,13 +91,13 @@ def get_transforms(phase="train"):
 
 
 def build_dataloaders():
-    """构建训练和评估DataLoader"""
+    """Build the training and evaluation dataloaders"""
     train_transform = get_transforms("train")
     eval_transform = get_transforms("eval")
 
     train_ds = DunhuangDataset(TRAIN_CSV, transform=train_transform, is_train=True)
     query_ds = DunhuangDataset(QUERY_CSV, transform=eval_transform, is_train=False)
-    # Gallery包含distractors
+    # the gallery contains distractors
     gallery_ds = DunhuangDataset(GALLERY_CSV, transform=eval_transform,
                                  is_train=False, include_distractors=True)
     cross_ds = DunhuangDataset(CROSS_SRC_CSV, transform=eval_transform,

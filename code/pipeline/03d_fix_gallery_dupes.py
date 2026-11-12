@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Step 3d: 修复审计发现的 Train-Gallery labeled 近重复
-将 gallery 中与 train cosine sim >= 0.99 的 labeled 图像转为 distractor。
-这些图像是 3c 从 cross-source 移入 gallery 时引入的，不影响 gallery 大小，
-仅将 is_distractor 标记改为 True，使其在评估中不计为 relevant。
+Step 3d: fix the Train-Gallery labeled near-duplicates the audit found
+Turn the labeled gallery images with cosine sim >= 0.99 against train into distractors
+these images entered when step 3c moved them from cross-source into the gallery; they do not change the gallery size,
+only the is_distractor flag is set to True, so the image never counts as relevant at evaluation time
 """
 import os, sys, csv, json
 import numpy as np

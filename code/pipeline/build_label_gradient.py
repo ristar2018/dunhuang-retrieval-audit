@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-D1: 构建标签质量梯度训练集 (F1修订版)
-生成 S0-S3 (原始组) + S0'-S3' (等样本量控制组)
+D1: build the label-quality gradient training sets (F1, revised)
+Generate S0-S3 (the original tiers) plus S0'-S3' (the size-matched controls)
 
-层级定义:
-  L0: label_type=seed, confidence=1.0 → ~0%噪声
-  L1: label_type=seed_knn, confidence=1.0 → ~1-3%噪声
-  L2: label_type=seed_knn, confidence<1.0 → ~10-15%噪声
-  L3: label_type=expanded_knn → ~20-30%噪声
+tier definitions:
+  L0: label_type = seed, confidence = 1.0 -> about 0% noise
+  L1: label_type = seed_knn, confidence = 1.0 -> about 1-3% noise
+  L2: label_type = seed_knn, confidence < 1.0 -> about 10-15% noise
+  L3: label_type = expanded_knn -> about 20-30% noise
 
 S0 = L0 only
 S1 = L0 + L1
 S2 = L0 + L1 + L2
-S3 = L0 + L1 + L2 + L3 (全量train)
+S3 = L0 + L1 + L2 + L3 (the whole train split)
 
-控制组 S0'-S3': 从各层级随机采样到与L0等样本量(2278)
+control sets S0'-S3': randomly sampled from each tier down to the L0 sample size (2,278)
 
-输出: {S0,S1,S2,S3,S0_prime,S1_prime,S2_prime,S3_prime}_indices.json
+output: {S0,S1,S2,S3,S0_prime,S1_prime,S2_prime,S3_prime}_indices.json
      + gradient_metadata.json + build_log.txt
 """
 import csv, os, json, time, sys
