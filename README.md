@@ -35,6 +35,32 @@ evidence; a mismatch is a defect in one of the two.
 | the trained checkpoints of all 628 runs (~12 GB, dominated by the `.pt` files) | size; and they are re-derivable from the configs | every config that produced them is in `runs/RUN_MANIFEST.csv`; the aggregate tables they produced are in `results/` |
 | `dinov3_features.npy`, `dinov2_features.npy` (196.9 MB) | recomputable in minutes from the images and the pinned backbone | `data/features/feature_index.json` keeps the row order and the backbone identifier |
 
+## Data provenance and licences
+
+The 32,415 rows resolve to five released collections through seven `source`
+values. No image is redistributed in this package; only annotation tables,
+derived features and code are.
+
+| `source` | rows | collection and release | licence |
+|---|---:|---|---|
+| `muraldh_512`, `muraldh_sr`, `muraldh_seg` | 5,096 / 2,560 / 1,126 | **MuralDH** — Xu and Chen, China University of Mining and Technology; *Scientific Data* 11:955 (2024), doi:10.1038/s41597-024-03785-0; data at Dryad, doi:10.5061/dryad.bnzs7h4jd; code at github.com/tearsheaven/MuralDH | CC0 1.0 |
+| `dh_v1` | 15,594 | **DH_Mural** — kaggle.com/datasets/mrzzzz22/dh-version1, an aggregate of MuralDH, Dunhuang_Grottoes_Painting, Dunhuang_Faces and DhMurals1714, resized or cropped to 512 x 512 | no licence declared; the release page requires the upstream licences to be respected and prohibits commercial use |
+| `deepflying` | 4,561 | **DunHuang frescos** — kaggle.com/datasets/jchrysanthemum/deepflying, COCO-style annotations | CC BY-NC-SA 4.0 |
+| `dunhuang_grottoes` | 1,200 | **Dunhuang Grottoes Painting Dataset and Benchmark** — kaggle.com/datasets/xuhangc/dunhuang-grottoes-painting-dataset-and-benchmark; Dunhuang Academy and Microsoft Research Asia (Yu et al., 2019, arXiv:1907.04589) | CC0 1.0 |
+| `hf_dunhuang` | 2,278 | **b1ackrnoon/dunhuang** on the Hugging Face Hub — huggingface.co/datasets/b1ackrnoon/dunhuang; 2,352 images in 16 classes, the only source of human labels | no licence declared on the dataset card |
+
+Two upstream collections are reachable only through `dh_v1`: DhMurals1714
+(MuralNet, arXiv:2211.06649, doi:10.1145/3737703, released at
+github.com/qinnzou/mural-image-inpainting without an explicit licence) and
+Dunhuang_Faces (doi:10.18280/ts.420148), whose images originate from the Digital
+Dunhuang project (e-dunhuang.com). Neither carries a `source` value of its own,
+so the five collections above, not seven, are what the rows resolve to.
+
+All use was non-commercial. Where a licence forbids commercial use or imposes
+share-alike terms, the constraint applies to the images, which stay with their
+providers; what ships here is the annotation table produced by this work and the
+code that produced it.
+
 ## Layout
 
 ```
