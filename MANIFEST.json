@@ -12,8 +12,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 15232,
-      "sha256": "74cc5ee08337f898d8d115b82c6c5429129a3ddf5a7afb553fa383de2e8cb9e6"
+      "bytes": 15520,
+      "sha256": "f2f819c77ec4bb8521a8fc36f7cb6cf44c73d60e81927232e074ecf47cbcdb35"
     },
     {
       "path": "checks/verify_numbers.py",
@@ -392,8 +392,8 @@
     },
     {
       "path": "runs/RUN_MANIFEST.csv",
-      "bytes": 58679,
-      "sha256": "5a6f2555656de7d2e5c69147330616a77bc2a2ce1442438950756cab717383f7"
+      "bytes": 58499,
+      "sha256": "7527a4d5d93836af2fc5d284282e0109e9ee2247da9628252e498ce05314c963"
     }
   ]
 }

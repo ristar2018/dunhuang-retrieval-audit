@@ -156,8 +156,8 @@ column here.
 | `training_set` | `S0`..`S3`, `S0_prime`..`S3_prime` | training tier, or its size-matched control |
 | `training_seed` | 42, 123, 456 | weight initialisation and batch order |
 | `scale` | blank, 10, 30, 64 | angular scale; blank only for `CircleLoss`, which has none |
-| `margin_arg` | blank, 0.0, 0.5, 28.6, 28.6479 | the margin **as handed to the loss** |
-| `margin_unit` | `degree` 385, `none` 243 | its unit; `none` for GCE, SCE, `CircleLoss`, `ProxyNCA` |
+| `margin_arg` | blank, 0.0, 0.4, 0.5, 28.6, 28.6479 | the margin **as handed to the loss**; degrees for the angular-softmax heads, a cosine offset for `CosFace` |
+| `margin_unit` | `degree` 337, `cosine` 48, `none` 243 | its unit; `none` for GCE, SCE, `CircleLoss`, `ProxyNCA` |
 | `subcenter_K` | blank 511, 1 21, 3 84, 5 12 | sub-centres; blank where the loss has none. `1` is a real setting, not a stand-in for "none" |
 | `num_training_images` | 20 distinct | images in the training tier |
 | `num_update_steps` | blank, 9 distinct | optimiser steps; blank for the 129 published runs, which did not log them |
@@ -168,13 +168,16 @@ column here.
 Constant or derivable values are stated here once instead of being repeated per
 row: `batch_size` 32, `lr` 5e-4, `weight_decay` 0.01, `embed_dim` 512,
 `num_classes` 16, and `torch 2.11.0+cu128` for the 499 new runs — the published
-runs did not record their environment. The effective margin is
-`radians(margin_arg)` wherever `margin_unit` is `degree`, and 0 otherwise.
+runs did not record their environment. The effective angular margin is
+`radians(margin_arg)` wherever `margin_unit` is `degree`.
 
 Read `margin_arg` with `margin_unit`, never alone. The published `ArcFace` row
 hands the loss `0.5` degrees, i.e. 0.0087 rad; the stage-0 rows hand over
 `28.6479`, the degree equivalent of a 0.5 radian margin. That factor of 57 is
 Section 7 of the paper, and it is legible here without reading code. The
+`CosFace` rows are the exception that the `cosine` unit marks: that loss
+subtracts its margin from the cosine itself, so its 0.4 and 0.5 are offsets,
+not angles, and do not compare with the degree values. The
 published `CircleLoss` runs use the library defaults `m=0.4, gamma=80`, and
 `ProxyNCA` uses `softmax_scale=10.0`; neither config records them.
 

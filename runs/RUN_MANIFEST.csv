@@ -26,9 +26,9 @@ ArcFace_S3_seed456,published,ArcFace,S3,456,30.0,0.5,degree,,9036,,40,code defau
 CircleLoss_S0_seed123,published,CircleLoss,S0,123,,,none,,1602,,40,code default,yes
 CircleLoss_S0_seed42,published,CircleLoss,S0,42,,,none,,1602,,40,code default,yes
 CircleLoss_S0_seed456,published,CircleLoss,S0,456,,,none,,1602,,40,code default,yes
-CosFace_S0_seed123,published,CosFace,S0,123,30.0,0.4,degree,,1602,,40,code default,yes
-CosFace_S0_seed42,published,CosFace,S0,42,30.0,0.4,degree,,1602,,40,code default,yes
-CosFace_S0_seed456,published,CosFace,S0,456,30.0,0.4,degree,,1602,,40,code default,yes
+CosFace_S0_seed123,published,CosFace,S0,123,30.0,0.4,cosine,,1602,,40,code default,yes
+CosFace_S0_seed42,published,CosFace,S0,42,30.0,0.4,cosine,,1602,,40,code default,yes
+CosFace_S0_seed456,published,CosFace,S0,456,30.0,0.4,cosine,,1602,,40,code default,yes
 GCE_S0_prime_seed123,published,GCE,S0_prime,123,30.0,,none,,1602,,40,code default,yes
 GCE_S0_prime_seed42,published,GCE,S0_prime,42,30.0,,none,,1602,,40,code default,yes
 GCE_S0_prime_seed456,published,GCE,S0_prime,456,30.0,,none,,1602,,40,code default,yes
@@ -201,15 +201,15 @@ e1f0_ArcFace_S3_prime_seed456,E1,ArcFace,S3_prime,456,30.0,28.6479,degree,,1358,
 e1f0_ArcFace_S3_seed123,E1,ArcFace,S3,123,30.0,28.6479,degree,,8792,10960,40,config.json,yes
 e1f0_ArcFace_S3_seed42,E1,ArcFace,S3,42,30.0,28.6479,degree,,8792,10960,40,config.json,yes
 e1f0_ArcFace_S3_seed456,E1,ArcFace,S3,456,30.0,28.6479,degree,,8792,10960,40,config.json,yes
-e1f0_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,28.6479,degree,,1358,1680,40,config.json,yes
-e1f0_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,28.6479,degree,,1358,1680,40,config.json,yes
-e1f0_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,28.6479,degree,,1358,1680,40,config.json,yes
-e1f0_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,28.6479,degree,,7316,9120,40,config.json,yes
-e1f0_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,28.6479,degree,,7316,9120,40,config.json,yes
-e1f0_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,28.6479,degree,,7316,9120,40,config.json,yes
-e1f0_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,28.6479,degree,,8792,10960,40,config.json,yes
-e1f0_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,28.6479,degree,,8792,10960,40,config.json,yes
-e1f0_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,28.6479,degree,,8792,10960,40,config.json,yes
+e1f0_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,0.5,cosine,,1358,1680,40,config.json,yes
+e1f0_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,0.5,cosine,,1358,1680,40,config.json,yes
+e1f0_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,0.5,cosine,,1358,1680,40,config.json,yes
+e1f0_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,0.5,cosine,,7316,9120,40,config.json,yes
+e1f0_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,0.5,cosine,,7316,9120,40,config.json,yes
+e1f0_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,0.5,cosine,,7316,9120,40,config.json,yes
+e1f0_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,0.5,cosine,,8792,10960,40,config.json,yes
+e1f0_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,0.5,cosine,,8792,10960,40,config.json,yes
+e1f0_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,0.5,cosine,,8792,10960,40,config.json,yes
 e1f0_GCE_S0_prime_seed123,E1,GCE,S0_prime,123,30.0,,none,,1358,1680,40,config.json,yes
 e1f0_GCE_S0_prime_seed42,E1,GCE,S0_prime,42,30.0,,none,,1358,1680,40,config.json,yes
 e1f0_GCE_S0_prime_seed456,E1,GCE,S0_prime,456,30.0,,none,,1358,1680,40,config.json,yes
@@ -291,15 +291,15 @@ e1f1_ArcFace_S3_prime_seed456,E1,ArcFace,S3_prime,456,30.0,28.6479,degree,,1366,
 e1f1_ArcFace_S3_seed123,E1,ArcFace,S3,123,30.0,28.6479,degree,,8800,11000,40,config.json,yes
 e1f1_ArcFace_S3_seed42,E1,ArcFace,S3,42,30.0,28.6479,degree,,8800,11000,40,config.json,yes
 e1f1_ArcFace_S3_seed456,E1,ArcFace,S3,456,30.0,28.6479,degree,,8800,11000,40,config.json,yes
-e1f1_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,28.6479,degree,,1366,1680,40,config.json,yes
-e1f1_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,28.6479,degree,,1366,1680,40,config.json,yes
-e1f1_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,28.6479,degree,,1366,1680,40,config.json,yes
-e1f1_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,28.6479,degree,,7324,9120,40,config.json,yes
-e1f1_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,28.6479,degree,,7324,9120,40,config.json,yes
-e1f1_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,28.6479,degree,,7324,9120,40,config.json,yes
-e1f1_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,28.6479,degree,,8800,11000,40,config.json,yes
-e1f1_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,28.6479,degree,,8800,11000,40,config.json,yes
-e1f1_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,28.6479,degree,,8800,11000,40,config.json,yes
+e1f1_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,0.5,cosine,,1366,1680,40,config.json,yes
+e1f1_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,0.5,cosine,,1366,1680,40,config.json,yes
+e1f1_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,0.5,cosine,,1366,1680,40,config.json,yes
+e1f1_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,0.5,cosine,,7324,9120,40,config.json,yes
+e1f1_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,0.5,cosine,,7324,9120,40,config.json,yes
+e1f1_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,0.5,cosine,,7324,9120,40,config.json,yes
+e1f1_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,0.5,cosine,,8800,11000,40,config.json,yes
+e1f1_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,0.5,cosine,,8800,11000,40,config.json,yes
+e1f1_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,0.5,cosine,,8800,11000,40,config.json,yes
 e1f1_GCE_S0_prime_seed123,E1,GCE,S0_prime,123,30.0,,none,,1366,1680,40,config.json,yes
 e1f1_GCE_S0_prime_seed42,E1,GCE,S0_prime,42,30.0,,none,,1366,1680,40,config.json,yes
 e1f1_GCE_S0_prime_seed456,E1,GCE,S0_prime,456,30.0,,none,,1366,1680,40,config.json,yes
@@ -381,15 +381,15 @@ e1f2_ArcFace_S3_prime_seed456,E1,ArcFace,S3_prime,456,30.0,28.6479,degree,,1370,
 e1f2_ArcFace_S3_seed123,E1,ArcFace,S3,123,30.0,28.6479,degree,,8804,11000,40,config.json,yes
 e1f2_ArcFace_S3_seed42,E1,ArcFace,S3,42,30.0,28.6479,degree,,8804,11000,40,config.json,yes
 e1f2_ArcFace_S3_seed456,E1,ArcFace,S3,456,30.0,28.6479,degree,,8804,11000,40,config.json,yes
-e1f2_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,28.6479,degree,,1370,1680,40,config.json,yes
-e1f2_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,28.6479,degree,,1370,1680,40,config.json,yes
-e1f2_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,28.6479,degree,,1370,1680,40,config.json,yes
-e1f2_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,28.6479,degree,,7328,9160,40,config.json,yes
-e1f2_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,28.6479,degree,,7328,9160,40,config.json,yes
-e1f2_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,28.6479,degree,,7328,9160,40,config.json,yes
-e1f2_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,28.6479,degree,,8804,11000,40,config.json,yes
-e1f2_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,28.6479,degree,,8804,11000,40,config.json,yes
-e1f2_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,28.6479,degree,,8804,11000,40,config.json,yes
+e1f2_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,0.5,cosine,,1370,1680,40,config.json,yes
+e1f2_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,0.5,cosine,,1370,1680,40,config.json,yes
+e1f2_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,0.5,cosine,,1370,1680,40,config.json,yes
+e1f2_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,0.5,cosine,,7328,9160,40,config.json,yes
+e1f2_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,0.5,cosine,,7328,9160,40,config.json,yes
+e1f2_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,0.5,cosine,,7328,9160,40,config.json,yes
+e1f2_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,0.5,cosine,,8804,11000,40,config.json,yes
+e1f2_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,0.5,cosine,,8804,11000,40,config.json,yes
+e1f2_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,0.5,cosine,,8804,11000,40,config.json,yes
 e1f2_GCE_S0_prime_seed123,E1,GCE,S0_prime,123,30.0,,none,,1370,1680,40,config.json,yes
 e1f2_GCE_S0_prime_seed42,E1,GCE,S0_prime,42,30.0,,none,,1370,1680,40,config.json,yes
 e1f2_GCE_S0_prime_seed456,E1,GCE,S0_prime,456,30.0,,none,,1370,1680,40,config.json,yes
@@ -471,15 +471,15 @@ e1f3_ArcFace_S3_prime_seed456,E1,ArcFace,S3_prime,456,30.0,28.6479,degree,,1374,
 e1f3_ArcFace_S3_seed123,E1,ArcFace,S3,123,30.0,28.6479,degree,,8808,11000,40,config.json,yes
 e1f3_ArcFace_S3_seed42,E1,ArcFace,S3,42,30.0,28.6479,degree,,8808,11000,40,config.json,yes
 e1f3_ArcFace_S3_seed456,E1,ArcFace,S3,456,30.0,28.6479,degree,,8808,11000,40,config.json,yes
-e1f3_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,28.6479,degree,,1374,1680,40,config.json,yes
-e1f3_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,28.6479,degree,,1374,1680,40,config.json,yes
-e1f3_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,28.6479,degree,,1374,1680,40,config.json,yes
-e1f3_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,28.6479,degree,,7332,9160,40,config.json,yes
-e1f3_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,28.6479,degree,,7332,9160,40,config.json,yes
-e1f3_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,28.6479,degree,,7332,9160,40,config.json,yes
-e1f3_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,28.6479,degree,,8808,11000,40,config.json,yes
-e1f3_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,28.6479,degree,,8808,11000,40,config.json,yes
-e1f3_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,28.6479,degree,,8808,11000,40,config.json,yes
+e1f3_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,0.5,cosine,,1374,1680,40,config.json,yes
+e1f3_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,0.5,cosine,,1374,1680,40,config.json,yes
+e1f3_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,0.5,cosine,,1374,1680,40,config.json,yes
+e1f3_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,0.5,cosine,,7332,9160,40,config.json,yes
+e1f3_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,0.5,cosine,,7332,9160,40,config.json,yes
+e1f3_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,0.5,cosine,,7332,9160,40,config.json,yes
+e1f3_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,0.5,cosine,,8808,11000,40,config.json,yes
+e1f3_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,0.5,cosine,,8808,11000,40,config.json,yes
+e1f3_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,0.5,cosine,,8808,11000,40,config.json,yes
 e1f3_GCE_S0_prime_seed123,E1,GCE,S0_prime,123,30.0,,none,,1374,1680,40,config.json,yes
 e1f3_GCE_S0_prime_seed42,E1,GCE,S0_prime,42,30.0,,none,,1374,1680,40,config.json,yes
 e1f3_GCE_S0_prime_seed456,E1,GCE,S0_prime,456,30.0,,none,,1374,1680,40,config.json,yes
@@ -561,15 +561,15 @@ e1f4_ArcFace_S3_prime_seed456,E1,ArcFace,S3_prime,456,30.0,28.6479,degree,,1366,
 e1f4_ArcFace_S3_seed123,E1,ArcFace,S3,123,30.0,28.6479,degree,,8800,11000,40,config.json,yes
 e1f4_ArcFace_S3_seed42,E1,ArcFace,S3,42,30.0,28.6479,degree,,8800,11000,40,config.json,yes
 e1f4_ArcFace_S3_seed456,E1,ArcFace,S3,456,30.0,28.6479,degree,,8800,11000,40,config.json,yes
-e1f4_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,28.6479,degree,,1366,1680,40,config.json,yes
-e1f4_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,28.6479,degree,,1366,1680,40,config.json,yes
-e1f4_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,28.6479,degree,,1366,1680,40,config.json,yes
-e1f4_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,28.6479,degree,,7324,9120,40,config.json,yes
-e1f4_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,28.6479,degree,,7324,9120,40,config.json,yes
-e1f4_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,28.6479,degree,,7324,9120,40,config.json,yes
-e1f4_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,28.6479,degree,,8800,11000,40,config.json,yes
-e1f4_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,28.6479,degree,,8800,11000,40,config.json,yes
-e1f4_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,28.6479,degree,,8800,11000,40,config.json,yes
+e1f4_CosFace_S0_seed123,E1,CosFace,S0,123,30.0,0.5,cosine,,1366,1680,40,config.json,yes
+e1f4_CosFace_S0_seed42,E1,CosFace,S0,42,30.0,0.5,cosine,,1366,1680,40,config.json,yes
+e1f4_CosFace_S0_seed456,E1,CosFace,S0,456,30.0,0.5,cosine,,1366,1680,40,config.json,yes
+e1f4_CosFace_S2_seed123,E1,CosFace,S2,123,30.0,0.5,cosine,,7324,9120,40,config.json,yes
+e1f4_CosFace_S2_seed42,E1,CosFace,S2,42,30.0,0.5,cosine,,7324,9120,40,config.json,yes
+e1f4_CosFace_S2_seed456,E1,CosFace,S2,456,30.0,0.5,cosine,,7324,9120,40,config.json,yes
+e1f4_CosFace_S3_seed123,E1,CosFace,S3,123,30.0,0.5,cosine,,8800,11000,40,config.json,yes
+e1f4_CosFace_S3_seed42,E1,CosFace,S3,42,30.0,0.5,cosine,,8800,11000,40,config.json,yes
+e1f4_CosFace_S3_seed456,E1,CosFace,S3,456,30.0,0.5,cosine,,8800,11000,40,config.json,yes
 e1f4_GCE_S0_prime_seed123,E1,GCE,S0_prime,123,30.0,,none,,1366,1680,40,config.json,yes
 e1f4_GCE_S0_prime_seed42,E1,GCE,S0_prime,42,30.0,,none,,1366,1680,40,config.json,yes
 e1f4_GCE_S0_prime_seed456,E1,GCE,S0_prime,456,30.0,,none,,1366,1680,40,config.json,yes
