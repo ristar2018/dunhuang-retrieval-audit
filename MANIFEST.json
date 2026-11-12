@@ -1,6 +1,6 @@
 {
   "package": "Answer-key provenance reproduction package",
-  "manuscript": "Answer-Key Provenance and Margin-Unit Conventions in Cultural Heritage Image Retrieval: A Dunhuang Re-evaluation",
+  "manuscript": "Auditing Relevance-Label Provenance and Angular-Margin Units in Dunhuang Image Retrieval",
   "built_from_root": "<PROJECT_ROOT>",
   "run_counts": {
     "published": 129,
@@ -12,8 +12,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 11858,
-      "sha256": "dbd5f0ccf69c8b15b788f87d4cc32b31aa2ed7b5d047daaf14b75ce3f6b07798"
+      "bytes": 11834,
+      "sha256": "4747939197981807372e994cd3e9b563ba3f80b24de107a52b33b3a808a5b406"
     },
     {
       "path": "checks/verify_numbers.py",

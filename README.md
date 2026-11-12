@@ -1,7 +1,7 @@
 ﻿# Reproduction package
 
-For *Answer-Key Provenance and Margin-Unit Conventions in Cultural Heritage
-Image Retrieval: A Dunhuang Re-evaluation*.
+For *Auditing Relevance-Label Provenance and Angular-Margin Units in Dunhuang
+Image Retrieval*.
 
 The package is maintained at https://github.com/ristar2018/dunhuang-retrieval-audit.
 
