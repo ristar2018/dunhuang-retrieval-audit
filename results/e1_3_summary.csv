@@ -1,0 +1,5 @@
+﻿method,n_classes,spearman_rho_size_vs_delta,spearman_p,mean_delta_big_classes,mean_delta_small_classes,n_pos,n_neg
+ArcFace,16,0.071,0.795,0.0139,0.0147,12,4
+GCE,16,0.247,0.3563,0.0076,-0.0057,9,7
+SCE,16,0.247,0.3563,0.0158,-0.0017,7,9
+SubCenterArcFace_K3,16,0.306,0.2493,0.0269,0.0198,11,5

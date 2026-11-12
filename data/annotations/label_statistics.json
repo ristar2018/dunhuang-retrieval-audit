@@ -1,0 +1,81 @@
+{
+  "total_images": 32415,
+  "seed_count": 2278,
+  "seed_categories": 16,
+  "knn_k": 7,
+  "confidence_threshold": 0.6,
+  "feature_model": "dinov2-base",
+  "feature_dim": 768,
+  "by_source": {
+    "muraldh_512": {
+      "total": 5096,
+      "labeled": 1785,
+      "uncertain": 3311
+    },
+    "muraldh_sr": {
+      "total": 2560,
+      "labeled": 1072,
+      "uncertain": 1488
+    },
+    "muraldh_seg": {
+      "total": 1126,
+      "labeled": 427,
+      "uncertain": 699
+    },
+    "dh_v1": {
+      "total": 15594,
+      "labeled": 5621,
+      "uncertain": 9973
+    },
+    "deepflying": {
+      "total": 4561,
+      "labeled": 2294,
+      "uncertain": 2267
+    },
+    "dunhuang_grottoes": {
+      "total": 1200,
+      "labeled": 378,
+      "uncertain": 822
+    },
+    "hf_dunhuang": {
+      "total": 2278,
+      "labeled": 2278,
+      "uncertain": 0
+    }
+  },
+  "by_label": {
+    "buddha": 6595,
+    "cave_exterior": 6058,
+    "wall_mural": 5248,
+    "pattern": 2408,
+    "ceiling_pattern": 2000,
+    "narrative": 1615,
+    "fly_apsara": 1425,
+    "buddha_statue": 1186,
+    "architecture": 1175,
+    "animals": 1012,
+    "music": 981,
+    "landscape": 915,
+    "story": 678,
+    "deity": 623,
+    "other": 270,
+    "dance": 226
+  },
+  "by_label_type": {
+    "uncertain": 18560,
+    "seed_knn": 9454,
+    "expanded_knn": 2123,
+    "seed": 2278
+  },
+  "confidence_distribution": {
+    "mean": 0.6068950891494751,
+    "median": 0.5724285840988159,
+    "std": 0.23609578609466553,
+    "min": 0.14350749552249908,
+    "max": 1.0,
+    "pct_ge_0.9": 0.15073268548511493,
+    "pct_ge_0.8": 0.25404905136510875,
+    "pct_ge_0.7": 0.38401974394570415,
+    "pct_ge_0.6": 0.4274255745796699
+  }
+}

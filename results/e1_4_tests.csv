@@ -1,0 +1,5 @@
+contrast,n,mean_delta,ci_lo,ci_hi,dz,p_raw,p_holm,sig_holm
+NormSoftmax: Δ(S2−S0),5,-0.0031,-0.0105,0.0043,-0.53,0.30399,0.30399,False
+NormSoftmax: Δ(S3−S0),5,-0.0179,-0.024,-0.0118,-3.65,0.00122,0.00489,True
+CosFace: Δ(S2−S0),5,0.0097,0.002,0.0174,1.57,0.02476,0.07427,False
+CosFace: Δ(S3−S0),5,0.0063,-0.0022,0.0147,0.92,0.10893,0.21786,False

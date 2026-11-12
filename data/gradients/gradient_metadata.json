@@ -1,0 +1,41 @@
+{
+  "build_time": "2026-08-24 15:39:09",
+  "total_train": 9036,
+  "layers": {
+    "L0": 1602,
+    "L1": 1396,
+    "L2": 4562,
+    "L3": 1476
+  },
+  "gradient_sets": {
+    "S0": 1602,
+    "S1": 2998,
+    "S2": 7560,
+    "S3": 9036,
+    "S0_prime": 1602,
+    "S1_prime": 1602,
+    "S2_prime": 1602,
+    "S3_prime": 1602
+  },
+  "control_group": {
+    "target_size": 1602,
+    "seed": 42,
+    "strategy": "random_sampling_without_replacement"
+  },
+  "estimated_noise_rates": {
+    "S0": "0% (seed, confidence=1.0)",
+    "S1": "1-3% (seed_knn unanimous)",
+    "S2": "10-15% (seed_knn with disagreement)",
+    "S3": "20-30% (expanded_knn)"
+  },
+  "noise_rate_numeric": {
+    "S0": 0.0,
+    "S1": 0.02,
+    "S2": 0.125,
+    "S3": 0.25,
+    "S0_prime": 0.0,
+    "S1_prime": 0.02,
+    "S2_prime": 0.125,
+    "S3_prime": 0.25
+  }
+}

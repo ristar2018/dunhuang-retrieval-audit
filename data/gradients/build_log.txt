@@ -1,0 +1,23 @@
+D1 Build Log
+Time: 2026-08-24 15:39:09
+Total train: 9036
+
+Layers:
+  L0: 1602
+  L1: 1396
+  L2: 4562
+  L3: 1476
+
+Gradient sets:
+  S0: 1602
+  S1: 2998
+  S2: 7560
+  S3: 9036
+  S0_prime: 1602
+  S1_prime: 1602
+  S2_prime: 1602
+  S3_prime: 1602
+
+Control group: target_size=1602, seed=42
+
+Elapsed: 0.1s

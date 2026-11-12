@@ -1,0 +1,43 @@
+{
+  "total_images": 31815,
+  "splits": {
+    "train": {
+      "total": 9036
+    },
+    "query": {
+      "total": 1076
+    },
+    "gallery": {
+      "total": 19235,
+      "labeled": 1235,
+      "distractor": 18000
+    },
+    "cross_source_test": {
+      "total": 2468
+    }
+  },
+  "dedup": {
+    "sim_threshold": 0.99,
+    "total_dup_pairs_found": 15381,
+    "dup_clusters": 6478,
+    "images_involved": 16305,
+    "reassigned": 1174,
+    "cross_source_removed": 118,
+    "final_train_query_max_sim": 0.9837,
+    "final_train_gallery_max_sim": 0.989,
+    "final_cross_train_max_sim": 0.9899
+  },
+  "sr_groups": {
+    "total": 512,
+    "train": 179,
+    "query": 38,
+    "gallery": 295,
+    "leakage": 0
+  },
+  "f2_fix": {
+    "action": "removed dunhuang_grottoes images overlapping with dh_v1",
+    "removed_from_gallery": 514,
+    "removed_from_cross": 86,
+    "total_removed": 600
+  }
+}
